@@ -13,26 +13,26 @@ module Libnanomsg.Protocol
 import Foreign.C
 
 data Protocol
-  = Bus
-  | Pair
-  | Pub
-  | Pull
-  | Push
-  | Rep
-  | Req
-  | Respondent
-  | Sub
-  | Surveyor
+  = BUS
+  | PAIR
+  | PUB
+  | PULL
+  | PUSH
+  | REP
+  | REQ
+  | RESPONDENT
+  | SUB
+  | SURVEYOR
 
 toCInt :: Protocol -> CInt
 toCInt = \case
-  Bus        -> #const NN_BUS
-  Pair       -> #const NN_PAIR
-  Pub        -> #const NN_PUB
-  Pull       -> #const NN_PULL
-  Push       -> #const NN_PUSH
-  Rep        -> #const NN_REP
-  Req        -> #const NN_REQ
-  Respondent -> #const NN_RESPONDENT
-  Sub        -> #const NN_SUB
-  Surveyor   -> #const NN_SURVEYOR
+  BUS        -> #const NN_BUS
+  PAIR       -> #const NN_PAIR
+  PUB        -> #const NN_PUB
+  PULL       -> #const NN_PULL
+  PUSH       -> #const NN_PUSH
+  REP        -> #const NN_REP
+  REQ        -> #const NN_REQ
+  RESPONDENT -> #const NN_RESPONDENT
+  SUB        -> #const NN_SUB
+  SURVEYOR   -> #const NN_SURVEYOR

@@ -11,13 +11,18 @@ module Libnanomsg
 
 import Internal
 import Libnanomsg.Domain (Domain)
+import Libnanomsg.Level (Level)
+import Libnanomsg.Option (Option)
 import Libnanomsg.Protocol (Protocol)
 
 import qualified Libnanomsg.Domain as Domain
+import qualified Libnanomsg.Level as Level
+import qualified Libnanomsg.Option as Option
 import qualified Libnanomsg.Protocol as Protocol
 
 import Control.Exception (throwIO)
 import Foreign.C
+import Foreign.Ptr (Ptr)
 
 newtype Socket
   = Socket CInt
@@ -39,6 +44,26 @@ close (Socket fd) =
             (#const EBADF) -> pure (Left InvalidSocket)
             (#const EINTR) -> go
             errno -> bug "close" errno
+
+-- | <https://nanomsg.org/v1.1.5/nn_setsockopt.html>
+setsockopt ::
+     Socket
+  -> Level
+  -> Option
+  -> Ptr a
+  -> CSize
+  -> IO (Either (Error NnSetsockopt) ())
+setsockopt (Socket fd) level option value len =
+  nn_setsockopt fd (Level.toCInt level) (Option.toCInt option) value len >>= \case
+    0 ->
+      pure (Right ())
+
+    _ ->
+      nn_errno >>= \case
+        (#const EBADF) -> pure (Left InvalidSocket)
+        (#const ENOPROTOOPT) -> pure (Left InvalidProtocol)
+        (#const EINVAL) -> pure (Left InvalidOption)
+        (#const ETERM) -> pure (Left Terminating)
 
 -- | <https://nanomsg.org/v1.1.5/nn_socket.html>
 socket :: Domain -> Protocol -> IO (Either (Error NnSocket) Socket)
@@ -70,6 +95,9 @@ foreign import ccall safe "nn.h nn_close"
 
 foreign import ccall safe "nn.h nn_errno"
   nn_errno :: IO CInt
+
+foreign import ccall safe "nn.h nn_setsockopt"
+  nn_setsockopt :: CInt -> CInt -> CInt -> Ptr a -> CSize -> IO CInt
 
 foreign import ccall safe "nn.h nn_socket"
   nn_socket :: CInt -> CInt -> IO CInt

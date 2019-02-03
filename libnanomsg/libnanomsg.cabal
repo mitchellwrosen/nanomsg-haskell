@@ -58,4 +58,6 @@ library
   other-modules:
     Internal
     Libnanomsg.Domain
+    Libnanomsg.Level
+    Libnanomsg.Option
     Libnanomsg.Protocol

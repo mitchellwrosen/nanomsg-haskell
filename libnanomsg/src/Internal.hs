@@ -7,6 +7,10 @@ data Error :: Operation -> Type where
        (MayReturnAddressFamilyNotSupported op ~ 'True)
     => Error op
 
+  InvalidOption ::
+       (MayReturnInvalidOption op ~ 'True)
+    => Error op
+
   InvalidProtocol ::
        (MayReturnInvalidProtocol op ~ 'True)
     => Error op
@@ -25,21 +29,29 @@ data Error :: Operation -> Type where
 
 data Operation
   = NnClose
+  | NnSetsockopt
   | NnSocket
 
 type family MayReturnAddressFamilyNotSupported (op :: Operation) :: Bool where
   MayReturnAddressFamilyNotSupported 'NnSocket = 'True
   MayReturnAddressFamilyNotSupported _ = 'False
 
+type family MayReturnInvalidOption (op :: Operation) :: Bool where
+  MayReturnInvalidOption 'NnSetsockopt = 'True
+  MayReturnInvalidOption _ = 'False
+
 type family MayReturnInvalidProtocol (op :: Operation) :: Bool where
+  MayReturnInvalidProtocol 'NnSetsockopt = 'True
   MayReturnInvalidProtocol 'NnSocket = 'True
   MayReturnInvalidProtocol _ = 'False
 
 type family MayReturnInvalidSocket (op :: Operation) :: Bool where
   MayReturnInvalidSocket 'NnClose = 'True
+  MayReturnInvalidSocket 'NnSetsockopt = 'True
   MayReturnInvalidSocket _ = 'False
 
 type family MayReturnTerminating (op :: Operation) :: Bool where
+  MayReturnTerminating 'NnSetsockopt = 'True
   MayReturnTerminating 'NnSocket = 'True
   MayReturnTerminating _ = 'False
 
