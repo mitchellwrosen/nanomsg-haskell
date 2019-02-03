@@ -34,6 +34,7 @@ library
     GADTs
     KindSignatures
     LambdaCase
+    OverloadedStrings
     PatternSynonyms
     ScopedTypeVariables
     TypeFamilies
@@ -62,3 +63,4 @@ library
     Libnanomsg.Level
     Libnanomsg.Option
     Libnanomsg.Protocol
+    Libnanomsg.Transport

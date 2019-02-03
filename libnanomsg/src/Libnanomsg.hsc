@@ -13,6 +13,7 @@ module Libnanomsg
   , Operation(..)
   , Protocol(..)
   , Socket
+  , Transport(..)
   ) where
 
 #include "nanomsg/nn.h"
@@ -22,15 +23,22 @@ import Libnanomsg.Domain (Domain)
 import Libnanomsg.Level (Level)
 import Libnanomsg.Option (Option)
 import Libnanomsg.Protocol (Protocol)
+import Libnanomsg.Transport (Transport)
 
 import qualified Libnanomsg.Domain as Domain
 import qualified Libnanomsg.Level as Level
 import qualified Libnanomsg.Option as Option
 import qualified Libnanomsg.Protocol as Protocol
+import qualified Libnanomsg.Transport as Transport
 
 import Control.Exception (throwIO)
+import Data.ByteString (ByteString)
+import Data.Text (Text)
 import Foreign.C
 import Foreign.Ptr (Ptr)
+
+import qualified Data.ByteString.Unsafe as ByteString
+import qualified Data.Text.Encoding as Text
 
 newtype Endpoint
   = Endpoint CInt
@@ -39,24 +47,30 @@ newtype Socket
   = Socket CInt
 
 -- | <https://nanomsg.org/v1.1.5/nn_bind.html>
-bind :: Socket -> CString -> IO (Either (Error NnBind) Endpoint)
-bind (Socket fd) addr = do
-  nn_bind fd addr >>= \case
-    -1 ->
-      nn_errno >>= \case
-        EADDRINUSE_      -> pure (Left EADDRINUSE)
-        EADDRNOTAVAIL_   -> pure (Left EADDRNOTAVAIL)
-        EBADF_           -> pure (Left EBADF)
-        EINVAL_          -> pure (Left EINVAL)
-        EMFILE_          -> pure (Left EMFILE)
-        ENAMETOOLONG_    -> pure (Left ENAMETOOLONG)
-        ENODEV_          -> pure (Left ENODEV)
-        EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
-        ETERM_           -> pure (Left ETERM)
-        errno            -> bug "bind" errno
+bind :: Socket -> Transport -> Text -> IO (Either (Error NnBind) Endpoint)
+bind (Socket fd) transport addr =
+  ByteString.unsafeUseAsCString addrBytes $ \caddr ->
+    nn_bind fd caddr >>= \case
+      -1 ->
+        nn_errno >>= \case
+          EADDRINUSE_      -> pure (Left EADDRINUSE)
+          EADDRNOTAVAIL_   -> pure (Left EADDRNOTAVAIL)
+          EBADF_           -> pure (Left EBADF)
+          EINVAL_          -> pure (Left EINVAL)
+          EMFILE_          -> pure (Left EMFILE)
+          ENAMETOOLONG_    -> pure (Left ENAMETOOLONG)
+          ENODEV_          -> pure (Left ENODEV)
+          EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
+          ETERM_           -> pure (Left ETERM)
+          errno            -> bug "bind" errno
 
-    endpoint ->
-      pure (Right (Endpoint endpoint))
+      endpoint ->
+        pure (Right (Endpoint endpoint))
+
+  where
+    addrBytes :: ByteString
+    addrBytes =
+      Text.encodeUtf8 (Transport.toText transport <> addr <> "\0")
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either (Error NnClose) ())
