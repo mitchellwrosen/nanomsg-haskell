@@ -24,8 +24,30 @@ import Control.Exception (throwIO)
 import Foreign.C
 import Foreign.Ptr (Ptr)
 
+newtype Endpoint
+  = Endpoint CInt
+
 newtype Socket
   = Socket CInt
+
+-- | <https://nanomsg.org/v1.1.5/nn_bind.html>
+bind :: Socket -> CString -> IO (Either (Error NnBind) Endpoint)
+bind (Socket fd) addr = do
+  nn_bind fd addr >>= \case
+    -1 ->
+      nn_errno >>= \case
+        EADDRINUSE_      -> pure (Left EADDRINUSE)
+        EADDRNOTAVAIL_   -> pure (Left EADDRNOTAVAIL)
+        EBADF_           -> pure (Left EBADF)
+        EINVAL_          -> pure (Left EINVAL)
+        EMFILE_          -> pure (Left EMFILE)
+        ENAMETOOLONG_    -> pure (Left ENAMETOOLONG)
+        ENODEV_          -> pure (Left ENODEV)
+        EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
+        ETERM_           -> pure (Left ETERM)
+
+    endpointId ->
+      pure (Right (Endpoint endpointId))
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either (Error NnClose) ())
@@ -41,9 +63,9 @@ close (Socket fd) =
 
         _ ->
           nn_errno >>= \case
-            EBADF -> pure (Left InvalidSocket)
-            EINTR -> go
-            errno -> bug "close" errno
+            EBADF_ -> pure (Left EBADF)
+            EINTR_ -> go
+            errno  -> bug "close" errno
 
 
 -- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
@@ -61,10 +83,10 @@ getsockopt (Socket fd) level option value size =
 
     _ ->
       nn_errno >>= \case
-        EBADF -> pure (Left InvalidSocket)
-        ENOPROTOOPT -> pure (Left InvalidProtocol)
-        ETERM -> pure (Left Terminating)
-        errno -> bug "getsockopt" errno
+        EBADF_       -> pure (Left EBADF)
+        ENOPROTOOPT_ -> pure (Left ENOPROTOOPT)
+        ETERM_       -> pure (Left ETERM)
+        errno        -> bug "getsockopt" errno
 
 -- | <https://nanomsg.org/v1.1.5/nn_setsockopt.html>
 setsockopt ::
@@ -81,11 +103,11 @@ setsockopt (Socket fd) level option value len =
 
     _ ->
       nn_errno >>= \case
-        EBADF -> pure (Left InvalidSocket)
-        ENOPROTOOPT -> pure (Left InvalidProtocol)
-        EINVAL -> pure (Left InvalidOption)
-        ETERM -> pure (Left Terminating)
-        errno -> bug "setsockopt" errno
+        EBADF_       -> pure (Left EBADF)
+        EINVAL_      -> pure (Left EINVAL)
+        ENOPROTOOPT_ -> pure (Left ENOPROTOOPT)
+        ETERM_       -> pure (Left ETERM)
+        errno        -> bug "setsockopt" errno
 
 -- | <https://nanomsg.org/v1.1.5/nn_socket.html>
 socket :: Domain -> Protocol -> IO (Either (Error NnSocket) Socket)
@@ -96,11 +118,11 @@ socket domain protocol = do
   if fd < 0
     then
       nn_errno >>= \case
-        EAFNOSUPPORT -> pure (Left AddressFamilyNotSupported)
-        EINVAL -> pure (Left InvalidProtocol)
-        EMFILE -> pure (Left TooManyOpenFiles)
-        ETERM -> pure (Left Terminating)
-        errno -> bug "socket" errno
+        EAFNOSUPPORT_ -> pure (Left EAFNOSUPPORT)
+        EINVAL_       -> pure (Left EINVAL)
+        EMFILE_       -> pure (Left EMFILE)
+        ETERM_        -> pure (Left ETERM)
+        errno         -> bug "socket" errno
 
     else
       pure (Right (Socket fd))
@@ -112,26 +134,44 @@ version =
     x = #const NN_VERSION_CURRENT
     y = #const NN_VERSION_REVISION
 
-pattern EAFNOSUPPORT :: CInt
-pattern EAFNOSUPPORT = #const EAFNOSUPPORT
+pattern EADDRINUSE_ :: CInt
+pattern EADDRINUSE_ = #const EADDRINUSE
 
-pattern EBADF :: CInt
-pattern EBADF = #const EBADF
+pattern EADDRNOTAVAIL_ :: CInt
+pattern EADDRNOTAVAIL_ = #const EADDRNOTAVAIL
 
-pattern EINTR :: CInt
-pattern EINTR = #const EINTR
+pattern EAFNOSUPPORT_ :: CInt
+pattern EAFNOSUPPORT_ = #const EAFNOSUPPORT
 
-pattern EINVAL :: CInt
-pattern EINVAL = #const EINVAL
+pattern EBADF_ :: CInt
+pattern EBADF_ = #const EBADF
 
-pattern EMFILE :: CInt
-pattern EMFILE = #const EMFILE
+pattern EINTR_ :: CInt
+pattern EINTR_ = #const EINTR
 
-pattern ENOPROTOOPT :: CInt
-pattern ENOPROTOOPT = #const ENOPROTOOPT
+pattern EINVAL_ :: CInt
+pattern EINVAL_ = #const EINVAL
 
-pattern ETERM :: CInt
-pattern ETERM = #const ETERM
+pattern EPROTONOSUPPORT_ :: CInt
+pattern EPROTONOSUPPORT_ = #const EPROTONOSUPPORT
+
+pattern EMFILE_ :: CInt
+pattern EMFILE_ = #const EMFILE
+
+pattern ENAMETOOLONG_ :: CInt
+pattern ENAMETOOLONG_ = #const ENAMETOOLONG
+
+pattern ENODEV_ :: CInt
+pattern ENODEV_ = #const ENODEV
+
+pattern ENOPROTOOPT_ :: CInt
+pattern ENOPROTOOPT_ = #const ENOPROTOOPT
+
+pattern ETERM_ :: CInt
+pattern ETERM_ = #const ETERM
+
+foreign import ccall safe "nn.h nn_bind"
+  nn_bind :: CInt -> CString -> IO CInt
 
 foreign import ccall safe "nn.h nn_close"
   nn_close :: CInt -> IO CInt
