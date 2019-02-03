@@ -21,6 +21,7 @@ data Operation
   | NnConnect
   | NnGetsockopt
   | NnSetsockopt
+  | NnShutdown
   | NnSocket
 
 type family MayReturnEADDRINUSE (op :: Operation) :: Bool where
@@ -41,12 +42,14 @@ type family MayReturnEBADF (op :: Operation) :: Bool where
   MayReturnEBADF 'NnConnect    = 'True
   MayReturnEBADF 'NnGetsockopt = 'True
   MayReturnEBADF 'NnSetsockopt = 'True
+  MayReturnEBADF 'NnShutdown   = 'True
   MayReturnEBADF _             = 'False
 
 type family MayReturnEINVAL (op :: Operation) :: Bool where
   MayReturnEINVAL 'NnBind       = 'True
   MayReturnEINVAL 'NnConnect    = 'True
   MayReturnEINVAL 'NnSetsockopt = 'True
+  MayReturnEINVAL 'NnShutdown   = 'True
   MayReturnEINVAL 'NnSocket     = 'True
   MayReturnEINVAL _             = 'False
 
@@ -81,5 +84,6 @@ type family MayReturnETERM (op :: Operation) :: Bool where
   MayReturnETERM 'NnConnect    = 'True
   MayReturnETERM 'NnGetsockopt = 'True
   MayReturnETERM 'NnSetsockopt = 'True
+  MayReturnETERM 'NnShutdown   = 'True
   MayReturnETERM 'NnSocket     = 'True
   MayReturnETERM _             = 'False

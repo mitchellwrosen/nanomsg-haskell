@@ -1,5 +1,13 @@
+{-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
+
 module Libnanomsg
-  ( socket
+  ( bind
+  , close
+  , connect
+  , getsockopt
+  , setsockopt
+  , shutdown
+  , socket
   , version
   , Domain(..)
   , Operation(..)
@@ -47,8 +55,8 @@ bind (Socket fd) addr = do
         ETERM_           -> pure (Left ETERM)
         errno            -> bug "bind" errno
 
-    endpointId ->
-      pure (Right (Endpoint endpointId))
+    endpoint ->
+      pure (Right (Endpoint endpoint))
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either (Error NnClose) ())
@@ -71,10 +79,10 @@ close (Socket fd) =
 -- | <https://nanomsg.org/v1.1.5/nn_connect.html>
 connect :: Socket -> CString -> IO (Either (Error NnConnect) Endpoint)
 connect (Socket fd) addr = do
-  endpointId :: CInt <-
+  endpoint :: CInt <-
     nn_connect fd addr
 
-  if endpointId < 0
+  if endpoint < 0
     then
       nn_errno >>= \case
         EBADF_           -> pure (Left EBADF)
@@ -86,7 +94,7 @@ connect (Socket fd) addr = do
         ETERM_           -> pure (Left ETERM)
         errno            -> bug "connect" errno
     else
-      pure (Right (Endpoint endpointId))
+      pure (Right (Endpoint endpoint))
 
 -- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
 getsockopt ::
@@ -128,6 +136,25 @@ setsockopt (Socket fd) level option value len =
         ENOPROTOOPT_ -> pure (Left ENOPROTOOPT)
         ETERM_       -> pure (Left ETERM)
         errno        -> bug "setsockopt" errno
+
+shutdown :: Socket -> Endpoint -> IO (Either (Error NnShutdown) ())
+shutdown (Socket fd) (Endpoint endpoint) =
+  go
+
+  where
+    go :: IO (Either (Error NnShutdown) ())
+    go =
+      nn_shutdown fd endpoint >>= \case
+        0 ->
+          pure (Right ())
+
+        _ ->
+          nn_errno >>= \case
+            EBADF_  -> pure (Left EBADF)
+            EINVAL_ -> pure (Left EINVAL)
+            EINTR_  -> go
+            ETERM_  -> pure (Left ETERM)
+            errno   -> bug "shutdown" errno
 
 -- | <https://nanomsg.org/v1.1.5/nn_socket.html>
 socket :: Domain -> Protocol -> IO (Either (Error NnSocket) Socket)
@@ -208,14 +235,17 @@ foreign import ccall safe "nn.h nn_getsockopt"
 foreign import ccall safe "nn.h nn_setsockopt"
   nn_setsockopt :: CInt -> CInt -> CInt -> Ptr a -> CSize -> IO CInt
 
+foreign import ccall safe "nn.h nn_shutdown"
+  nn_shutdown :: CInt -> CInt -> IO CInt
+
 foreign import ccall safe "nn.h nn_socket"
   nn_socket :: CInt -> CInt -> IO CInt
 
-foreign import ccall safe "nn.h nn_strerror"
-  nn_strerror :: CInt -> IO CString
+-- foreign import ccall safe "nn.h nn_strerror"
+--   nn_strerror :: CInt -> IO CString
 
-foreign import ccall safe "nn.h nn_term"
-  nn_term :: IO ()
+-- foreign import ccall safe "nn.h nn_term"
+--   nn_term :: IO ()
 
 bug :: String -> CInt -> IO a
 bug name errno =
