@@ -45,6 +45,7 @@ bind (Socket fd) addr = do
         ENODEV_          -> pure (Left ENODEV)
         EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
         ETERM_           -> pure (Left ETERM)
+        errno            -> bug "bind" errno
 
     endpointId ->
       pure (Right (Endpoint endpointId))
@@ -67,6 +68,25 @@ close (Socket fd) =
             EINTR_ -> go
             errno  -> bug "close" errno
 
+-- | <https://nanomsg.org/v1.1.5/nn_connect.html>
+connect :: Socket -> CString -> IO (Either (Error NnConnect) Endpoint)
+connect (Socket fd) addr = do
+  endpointId :: CInt <-
+    nn_connect fd addr
+
+  if endpointId < 0
+    then
+      nn_errno >>= \case
+        EBADF_           -> pure (Left EBADF)
+        EMFILE_          -> pure (Left EMFILE)
+        EINVAL_          -> pure (Left EINVAL)
+        ENAMETOOLONG_    -> pure (Left ENAMETOOLONG)
+        EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
+        ENODEV_          -> pure (Left ENODEV)
+        ETERM_           -> pure (Left ETERM)
+        errno            -> bug "connect" errno
+    else
+      pure (Right (Endpoint endpointId))
 
 -- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
 getsockopt ::
@@ -175,6 +195,9 @@ foreign import ccall safe "nn.h nn_bind"
 
 foreign import ccall safe "nn.h nn_close"
   nn_close :: CInt -> IO CInt
+
+foreign import ccall safe "nn.h nn_connect"
+  nn_connect :: CInt -> CString -> IO CInt
 
 foreign import ccall safe "nn.h nn_errno"
   nn_errno :: IO CInt
