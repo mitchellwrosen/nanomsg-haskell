@@ -22,6 +22,25 @@ import Foreign.C
 newtype Socket
   = Socket CInt
 
+-- <https://nanomsg.org/v1.1.5/nn_close.html>
+close :: Socket -> IO (Either (Error NnClose) ())
+close (Socket fd) =
+  go
+
+  where
+    go :: IO (Either (Error NnClose) ())
+    go =
+      nn_close fd >>= \case
+        0 ->
+          pure (Right ())
+
+        _ ->
+          nn_errno >>= \case
+            (#const EBADF) -> pure (Left InvalidSocket)
+            (#const EINTR) -> go
+            errno -> bug "close" errno
+
+-- | <https://nanomsg.org/v1.1.5/nn_socket.html>
 socket :: Domain -> Protocol -> IO (Either (Error NnSocket) Socket)
 socket domain protocol = do
   fd :: CInt <-
@@ -31,10 +50,10 @@ socket domain protocol = do
     then
       nn_errno >>= \case
         (#const EAFNOSUPPORT) -> pure (Left AddressFamilyNotSupported)
-        (#const EINVAL)       -> pure (Left UnknownProtocol)
-        (#const EMFILE)       -> pure (Left TooManyOpenFiles)
-        (#const ETERM)        -> pure (Left Terminating)
-        errno                 -> bug "socket" errno
+        (#const EINVAL) -> pure (Left InvalidProtocol)
+        (#const EMFILE) -> pure (Left TooManyOpenFiles)
+        (#const ETERM) -> pure (Left Terminating)
+        errno -> bug "socket" errno
 
     else
       pure (Right (Socket fd))
@@ -45,6 +64,9 @@ version =
   where
     x = #const NN_VERSION_CURRENT
     y = #const NN_VERSION_REVISION
+
+foreign import ccall safe "nn.h nn_close"
+  nn_close :: CInt -> IO CInt
 
 foreign import ccall safe "nn.h nn_errno"
   nn_errno :: IO CInt
