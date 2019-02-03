@@ -12,7 +12,7 @@ description:
   Most sockets options are available through accessor and mutator
   functions. Sockets are typed, transports are not.
 
-homepage:            https://github.com/ivarnymoen/nanomsg-haskell
+homepage:            https://github.com/bgamari/nanomsg-haskell
 license:             MIT
 license-file:        LICENSE
 author:              Ivar Nymoen
@@ -78,7 +78,7 @@ test-suite tests-binary
 
 source-repository head
   type:              git
-  location:          https://github.com/ivarnymoen/nanomsg-haskell
+  location:          https://github.com/bgamari/nanomsg-haskell
 
 benchmark send-messages
   type:              exitcode-stdio-1.0

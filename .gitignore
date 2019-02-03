@@ -2,5 +2,6 @@
 /cabal.sandbox.config
 /cabal-dev
 /dist
+/dist-newstyle
+.ghc.environment.*
 *.swp
-
