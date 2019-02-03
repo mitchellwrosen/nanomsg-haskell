@@ -34,6 +34,7 @@ library
     GADTs
     KindSignatures
     LambdaCase
+    PatternSynonyms
     ScopedTypeVariables
     TypeFamilies
 

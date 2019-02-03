@@ -29,6 +29,7 @@ data Error :: Operation -> Type where
 
 data Operation
   = NnClose
+  | NnGetsockopt
   | NnSetsockopt
   | NnSocket
 
@@ -41,16 +42,19 @@ type family MayReturnInvalidOption (op :: Operation) :: Bool where
   MayReturnInvalidOption _ = 'False
 
 type family MayReturnInvalidProtocol (op :: Operation) :: Bool where
+  MayReturnInvalidProtocol 'NnGetsockopt = 'True
   MayReturnInvalidProtocol 'NnSetsockopt = 'True
   MayReturnInvalidProtocol 'NnSocket = 'True
   MayReturnInvalidProtocol _ = 'False
 
 type family MayReturnInvalidSocket (op :: Operation) :: Bool where
   MayReturnInvalidSocket 'NnClose = 'True
+  MayReturnInvalidSocket 'NnGetsockopt = 'True
   MayReturnInvalidSocket 'NnSetsockopt = 'True
   MayReturnInvalidSocket _ = 'False
 
 type family MayReturnTerminating (op :: Operation) :: Bool where
+  MayReturnTerminating 'NnGetsockopt = 'True
   MayReturnTerminating 'NnSetsockopt = 'True
   MayReturnTerminating 'NnSocket = 'True
   MayReturnTerminating _ = 'False

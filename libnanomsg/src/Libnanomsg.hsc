@@ -27,7 +27,7 @@ import Foreign.Ptr (Ptr)
 newtype Socket
   = Socket CInt
 
--- <https://nanomsg.org/v1.1.5/nn_close.html>
+-- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either (Error NnClose) ())
 close (Socket fd) =
   go
@@ -41,9 +41,30 @@ close (Socket fd) =
 
         _ ->
           nn_errno >>= \case
-            (#const EBADF) -> pure (Left InvalidSocket)
-            (#const EINTR) -> go
+            EBADF -> pure (Left InvalidSocket)
+            EINTR -> go
             errno -> bug "close" errno
+
+
+-- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
+getsockopt ::
+     Socket
+  -> Level
+  -> Option
+  -> Ptr a
+  -> Ptr CSize
+  -> IO (Either (Error NnGetsockopt) ())
+getsockopt (Socket fd) level option value size =
+  nn_getsockopt fd (Level.toCInt level) (Option.toCInt option) value size >>= \case
+    0 ->
+      pure (Right ())
+
+    _ ->
+      nn_errno >>= \case
+        EBADF -> pure (Left InvalidSocket)
+        ENOPROTOOPT -> pure (Left InvalidProtocol)
+        ETERM -> pure (Left Terminating)
+        errno -> bug "getsockopt" errno
 
 -- | <https://nanomsg.org/v1.1.5/nn_setsockopt.html>
 setsockopt ::
@@ -60,10 +81,11 @@ setsockopt (Socket fd) level option value len =
 
     _ ->
       nn_errno >>= \case
-        (#const EBADF) -> pure (Left InvalidSocket)
-        (#const ENOPROTOOPT) -> pure (Left InvalidProtocol)
-        (#const EINVAL) -> pure (Left InvalidOption)
-        (#const ETERM) -> pure (Left Terminating)
+        EBADF -> pure (Left InvalidSocket)
+        ENOPROTOOPT -> pure (Left InvalidProtocol)
+        EINVAL -> pure (Left InvalidOption)
+        ETERM -> pure (Left Terminating)
+        errno -> bug "setsockopt" errno
 
 -- | <https://nanomsg.org/v1.1.5/nn_socket.html>
 socket :: Domain -> Protocol -> IO (Either (Error NnSocket) Socket)
@@ -74,10 +96,10 @@ socket domain protocol = do
   if fd < 0
     then
       nn_errno >>= \case
-        (#const EAFNOSUPPORT) -> pure (Left AddressFamilyNotSupported)
-        (#const EINVAL) -> pure (Left InvalidProtocol)
-        (#const EMFILE) -> pure (Left TooManyOpenFiles)
-        (#const ETERM) -> pure (Left Terminating)
+        EAFNOSUPPORT -> pure (Left AddressFamilyNotSupported)
+        EINVAL -> pure (Left InvalidProtocol)
+        EMFILE -> pure (Left TooManyOpenFiles)
+        ETERM -> pure (Left Terminating)
         errno -> bug "socket" errno
 
     else
@@ -90,11 +112,35 @@ version =
     x = #const NN_VERSION_CURRENT
     y = #const NN_VERSION_REVISION
 
+pattern EAFNOSUPPORT :: CInt
+pattern EAFNOSUPPORT = #const EAFNOSUPPORT
+
+pattern EBADF :: CInt
+pattern EBADF = #const EBADF
+
+pattern EINTR :: CInt
+pattern EINTR = #const EINTR
+
+pattern EINVAL :: CInt
+pattern EINVAL = #const EINVAL
+
+pattern EMFILE :: CInt
+pattern EMFILE = #const EMFILE
+
+pattern ENOPROTOOPT :: CInt
+pattern ENOPROTOOPT = #const ENOPROTOOPT
+
+pattern ETERM :: CInt
+pattern ETERM = #const ETERM
+
 foreign import ccall safe "nn.h nn_close"
   nn_close :: CInt -> IO CInt
 
 foreign import ccall safe "nn.h nn_errno"
   nn_errno :: IO CInt
+
+foreign import ccall safe "nn.h nn_getsockopt"
+  nn_getsockopt :: CInt -> CInt -> CInt -> Ptr a -> Ptr CSize -> IO CInt
 
 foreign import ccall safe "nn.h nn_setsockopt"
   nn_setsockopt :: CInt -> CInt -> CInt -> Ptr a -> CSize -> IO CInt
