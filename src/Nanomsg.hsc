@@ -90,23 +90,22 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Unsafe as U
 import Data.Primitive.Addr (Addr(..))
-import qualified Data.Text as T
-import Foreign (peek, poke, alloca)
-import Foreign.Ptr
+-- import Foreign (peek, poke, alloca)
+-- import Foreign.Ptr
 import Foreign.C.Error (Errno(..), eAGAIN)
 import Foreign.C.Types
 import Foreign.C.String
-import Foreign.Storable (sizeOf)
+-- import Foreign.Storable (sizeOf)
 import GHC.Ptr (Ptr(..))
-import Control.Applicative ( (<$>) )
+-- import Control.Applicative ( (<$>) )
 import Control.Exception.Base (bracket)
 import Control.Exception (Exception, throwIO)
 import Data.List (stripPrefix)
 import Data.Typeable (Typeable)
-import Control.Monad (void)
+-- import Control.Monad (void)
 import Text.Printf (printf)
 import Control.Concurrent (threadWaitRead)
-import System.Posix.Types (Fd(..))
+-- import System.Posix.Types (Fd(..))
 
 
 -- * Data and typedefs

@@ -43,6 +43,23 @@ module Libnanomsg
   , setSendPriority
   , setSendTimeout
 
+    -- * Socket statistics
+    -- ** Connections
+  , acceptedConnections
+  , brokenConnections
+  , currentConnections
+  , droppedConnections
+  , establishedConnections
+    -- ** Errors
+  , acceptErrors
+  , bindErrors
+  , connectErrors
+    -- ** Throughput
+  , messagesSent
+  , messagesReceived
+  , bytesSent
+  , bytesReceived
+
     -- * Error reporting
   , strerror
 
@@ -89,7 +106,6 @@ import Libnanomsg.SendFlags
 
 import qualified Libnanomsg.Address as Address
 
-import Data.ByteString (ByteString)
 import Data.Coerce (coerce)
 import Data.Primitive.Addr (Addr(..))
 import Data.Text (Text)
@@ -97,10 +113,8 @@ import Foreign.C
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Ptr (Ptr)
 import Foreign.Storable (peek, poke, sizeOf)
-import GHC.Conc (threadWaitRead)
 import System.Posix.Types (Fd(..))
 
-import qualified Data.ByteString.Unsafe as ByteString
 import qualified Data.Text as Text
 
 
@@ -440,6 +454,94 @@ recv (Socket fd) (Addr addr) len flags =
     received ->
       pure (Right received)
 
+
+--------------------------------------------------------------------------------
+-- Socket statistics
+--------------------------------------------------------------------------------
+
+getStatistic ::
+     Socket
+  -> CInt
+  -> IO (Either Errno CULong)
+getStatistic (Socket fd) stat = do
+  value :: CULong <-
+    nn_get_statistic fd stat
+
+  if value == maxBound
+    then Left <$> getErrno
+    else pure (Right value)
+
+acceptedConnections ::
+     Socket
+  -> IO (Either Errno CULong)
+acceptedConnections socket =
+  getStatistic socket (#const NN_STAT_ACCEPTED_CONNECTIONS)
+
+acceptErrors ::
+     Socket
+  -> IO (Either Errno CULong)
+acceptErrors socket =
+  getStatistic socket (#const NN_STAT_ACCEPT_ERRORS)
+
+bindErrors ::
+     Socket
+  -> IO (Either Errno CULong)
+bindErrors socket =
+  getStatistic socket (#const NN_STAT_BIND_ERRORS)
+
+brokenConnections ::
+     Socket
+  -> IO (Either Errno CULong)
+brokenConnections socket =
+  getStatistic socket (#const NN_STAT_BROKEN_CONNECTIONS)
+
+bytesReceived ::
+     Socket
+  -> IO (Either Errno CULong)
+bytesReceived socket =
+  getStatistic socket (#const NN_STAT_BYTES_RECEIVED)
+
+bytesSent ::
+     Socket
+  -> IO (Either Errno CULong)
+bytesSent socket =
+  getStatistic socket (#const NN_STAT_BYTES_SENT)
+
+connectErrors ::
+     Socket
+  -> IO (Either Errno CULong)
+connectErrors socket =
+  getStatistic socket (#const NN_STAT_CONNECT_ERRORS)
+
+currentConnections ::
+     Socket
+  -> IO (Either Errno CULong)
+currentConnections socket =
+  getStatistic socket (#const NN_STAT_CURRENT_CONNECTIONS)
+
+droppedConnections ::
+     Socket
+  -> IO (Either Errno CULong)
+droppedConnections socket =
+  getStatistic socket (#const NN_STAT_DROPPED_CONNECTIONS)
+
+establishedConnections ::
+     Socket
+  -> IO (Either Errno CULong)
+establishedConnections socket =
+  getStatistic socket (#const NN_STAT_ESTABLISHED_CONNECTIONS)
+
+messagesReceived ::
+     Socket
+  -> IO (Either Errno CULong)
+messagesReceived socket =
+  getStatistic socket (#const NN_STAT_MESSAGES_RECEIVED)
+
+messagesSent ::
+     Socket
+  -> IO (Either Errno CULong)
+messagesSent socket =
+  getStatistic socket (#const NN_STAT_MESSAGES_SENT)
 
 --------------------------------------------------------------------------------
 -- Error reporting
