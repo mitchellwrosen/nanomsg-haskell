@@ -493,7 +493,7 @@ send (Socket t sid) string =
             Left errno ->
                 if errno == eAGAIN
                     then do
-                        Libnanomsg.getSendFd sid >>= \case
+                        Libnanomsg.sendFd sid >>= \case
                             Left errno' ->
                                 throwErrno' "getSendFd" errno'
                             Right fd -> do
@@ -630,7 +630,7 @@ term =
 -- Default value is 128kB.
 sndBuf :: Socket a -> IO Int
 sndBuf (Socket _ sid) =
-    Libnanomsg.getSendBufferSize sid >>= \case
+    Libnanomsg.sendBufferSize sid >>= \case
         Left errno -> throwErrno' "sndBuf" errno
         Right val -> pure (fromIntegral val)
 
@@ -652,7 +652,7 @@ setSndBuf (Socket _ sid) val =
 -- Default value is 128kB.
 rcvBuf :: Socket a -> IO Int
 rcvBuf (Socket _ sid) =
-    Libnanomsg.getRecvBufferSize sid >>= \case
+    Libnanomsg.recvBufferSize sid >>= \case
         Left errno -> throwErrno' "rcvBuf" errno
         Right val -> pure (fromIntegral val)
 
@@ -682,7 +682,7 @@ setRcvBuf (Socket _ sid) val =
 -- Default value is 100 (0.1 second).
 reconnectInterval :: Socket a -> IO Int
 reconnectInterval (Socket _ sid) =
-    Libnanomsg.getReconnectInterval sid >>= \case
+    Libnanomsg.reconnectInterval sid >>= \case
         Left errno -> throwErrno' "reconnectInterval" errno
         Right val -> pure (fromIntegral val)
 
@@ -711,7 +711,7 @@ setReconnectInterval (Socket _ sid) val =
 -- Default value is 0.
 reconnectIntervalMax :: Socket a -> IO Int
 reconnectIntervalMax (Socket _ sid) =
-    Libnanomsg.getMaxReconnectInterval sid >>= \case
+    Libnanomsg.maxReconnectInterval sid >>= \case
         Left errno -> throwErrno' "reconnectIntervalMax" errno
         Right val -> pure (fromIntegral val)
 
@@ -739,7 +739,7 @@ setReconnectIntervalMax (Socket _ sid) val =
 -- Highest priority is 1, lowest priority is 16. Default value is 8.
 sndPrio :: Socket a -> IO Int
 sndPrio (Socket _ sid) =
-    Libnanomsg.getSendPriority sid >>= \case
+    Libnanomsg.sendPriority sid >>= \case
         Left errno -> throwErrno' "sndPrio" errno
         Right val -> pure (fromIntegral val)
 
@@ -762,7 +762,7 @@ setSndPrio (Socket _ sid) val =
 -- Default value is 1.
 ipv4Only :: Socket a -> IO Int
 ipv4Only (Socket _ sid) =
-    Libnanomsg.getIPv4Only sid >>= \case
+    Libnanomsg.ipv4Only sid >>= \case
         Left errno -> throwErrno' "ipv4Only" errno
         Right val -> pure (if val then 1 else 0)
 

@@ -2,25 +2,35 @@
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Libnanomsg
-  ( Address(..)
-  , bind
+  ( -- * Socket create/destroy
+    socket
   , close
+
+    -- * Endpoint manipulation
+  , bind
   , connect
-  , getIPv4Only
-  , getMaxReconnectInterval
-  , getMaxRecvSize
-  , getMaxTTL
-  , getReconnectInterval
-  , getRecvBufferSize
-  , getRecvFd
-  , getRecvPriority
-  , getRecvTimeout
-  , getSendBufferSize
-  , getSendFd
-  , getSendPriority
-  , getSendTimeout
-  , recv
+  , shutdown
+
+    -- * Messaging
   , send
+  , recv
+
+    -- * Socket options
+    -- ** Get socket option
+  , ipv4Only
+  , maxReconnectInterval
+  , maxRecvSize
+  , maxTTL
+  , reconnectInterval
+  , recvBufferSize
+  , recvFd
+  , recvPriority
+  , recvTimeout
+  , sendBufferSize
+  , sendFd
+  , sendPriority
+  , sendTimeout
+    -- ** Set socket option
   , setIPv4Only
   , setMaxReconnectInterval
   , setMaxRecvSize
@@ -32,11 +42,17 @@ module Libnanomsg
   , setSendBufferSize
   , setSendPriority
   , setSendTimeout
-  , shutdown
-  , socket
+
+    -- * Error reporting
   , strerror
+
+    -- * Teardown
   , term
+
+    -- * Nanomsg version
   , version
+
+    -- * Types
   , Address(..)
   , Endpoint
   , Domain
@@ -87,6 +103,7 @@ import System.Posix.Types (Fd(..))
 import qualified Data.ByteString.Unsafe as ByteString
 import qualified Data.Text as Text
 
+
 newtype Endpoint
   = Endpoint CInt
   deriving (Eq, Show)
@@ -95,16 +112,20 @@ newtype Socket
   = Socket CInt
   deriving (Eq, Show)
 
--- | <https://nanomsg.org/v1.1.5/nn_bind.html>
-bind :: Socket -> Address -> IO (Either Errno Endpoint)
-bind (Socket fd) address =
-  Address.asCString address $ \caddr ->
-    nn_bind fd caddr >>= \case
-      -1 ->
-        Left <$> getErrno
 
-      endpoint ->
-        pure (Right (Endpoint endpoint))
+--------------------------------------------------------------------------------
+-- Socket create/destroy
+--------------------------------------------------------------------------------
+
+-- | <https://nanomsg.org/v1.1.5/nn_socket.html>
+socket :: Domain -> Protocol -> IO (Either Errno Socket)
+socket domain protocol = do
+  fd :: CInt <-
+    nn_socket (unDomain domain) (unProtocol protocol)
+
+  if fd < 0
+    then Left <$> getErrno
+    else pure (Right (Socket fd))
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either Errno ())
@@ -124,6 +145,22 @@ close (Socket fd) =
             then go
             else pure (Left errno)
 
+
+--------------------------------------------------------------------------------
+-- Endpoint manipulation
+--------------------------------------------------------------------------------
+
+-- | <https://nanomsg.org/v1.1.5/nn_bind.html>
+bind :: Socket -> Address -> IO (Either Errno Endpoint)
+bind (Socket fd) address =
+  Address.asCString address $ \caddr ->
+    nn_bind fd caddr >>= \case
+      -1 ->
+        Left <$> getErrno
+
+      endpoint ->
+        pure (Right (Endpoint endpoint))
+
 -- | <https://nanomsg.org/v1.1.5/nn_connect.html>
 connect :: Socket -> Address -> IO (Either Errno Endpoint)
 connect (Socket fd) address =
@@ -135,143 +172,26 @@ connect (Socket fd) address =
       then Left <$> getErrno
       else pure (Right (Endpoint endpoint))
 
--- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
-getsockopt ::
-     Socket
-  -> Level
-  -> Option
-  -> Ptr a
-  -> Ptr CSize
-  -> IO (Either Errno ())
-getsockopt (Socket fd) level option value size =
-  nn_getsockopt fd (unLevel level) (unOption option) value size >>= \case
-    0 ->
-      pure (Right ())
+-- | <https://nanomsg.org/v1.1.5/nn_shutdown.html>
+shutdown :: Socket -> Endpoint -> IO (Either Errno ())
+shutdown (Socket fd) (Endpoint endpoint) =
+  go
 
-    _ ->
-      Left <$> getErrno
+  where
+    go :: IO (Either Errno ())
+    go =
+      nn_shutdown fd endpoint >>= \case
+        0 -> pure (Right ())
+        _ -> do
+          errno <- getErrno
+          if errno == eINTR
+            then go
+            else pure (Left errno)
 
-getsockopt_int ::
-     Socket
-  -> Level
-  -> Option
-  -> IO (Either Errno CInt)
-getsockopt_int socket level option =
-  alloca $ \valuePtr ->
-  alloca $ \sizePtr ->
-    getsockopt socket level option valuePtr sizePtr >>= \case
-      Left errno -> pure (Left errno)
-      Right () -> Right <$> peek valuePtr
 
-getIPv4Only ::
-     Socket
-  -> IO (Either Errno Bool)
-getIPv4Only socket =
-  (fmap.fmap)
-    (\n -> if n == 0 then False else True)
-    (getsockopt_int socket levelSocket optionIpv4only)
-
-getMaxReconnectInterval ::
-     Socket
-  -> IO (Either Errno CInt)
-getMaxReconnectInterval socket =
-  getsockopt_int socket levelSocket optionReconnectIvlMax
-
-getMaxRecvSize ::
-     Socket
-  -> IO (Either Errno CInt)
-getMaxRecvSize socket =
-  getsockopt_int socket levelSocket optionRcvmaxsize
-
-getMaxTTL ::
-     Socket
-  -> IO (Either Errno CInt)
-getMaxTTL socket =
-  getsockopt_int socket levelSocket optionMaxttl
-
-getReconnectInterval ::
-     Socket
-  -> IO (Either Errno CInt)
-getReconnectInterval socket =
-  getsockopt_int socket levelSocket optionReconnectIvl
-
-getRecvBufferSize ::
-     Socket
-  -> IO (Either Errno CInt)
-getRecvBufferSize socket =
-  getsockopt_int socket levelSocket optionRcvbuf
-
-getRecvFd ::
-     Socket
-  -> IO (Either Errno Fd)
-getRecvFd socket =
-  coerce (getsockopt_int socket levelSocket optionRcvfd)
-
-getRecvPriority ::
-     Socket
-  -> IO (Either Errno CInt)
-getRecvPriority socket =
-  getsockopt_int socket levelSocket optionRcvprio
-
-getRecvTimeout ::
-     Socket
-  -> IO (Either Errno CInt)
-getRecvTimeout socket =
-  getsockopt_int socket levelSocket optionRcvtimeo
-
-getSendBufferSize ::
-     Socket
-  -> IO (Either Errno CInt)
-getSendBufferSize socket =
-  getsockopt_int socket levelSocket optionSndbuf
-
-getSendFd ::
-     Socket
-  -> IO (Either Errno Fd)
-getSendFd socket =
-  coerce (getsockopt_int socket levelSocket optionSndfd)
-
-getSendPriority ::
-     Socket
-  -> IO (Either Errno CInt)
-getSendPriority socket =
-  getsockopt_int socket levelSocket optionSndprio
-
-getSendTimeout ::
-     Socket
-  -> IO (Either Errno CInt)
-getSendTimeout socket =
-  getsockopt_int socket levelSocket optionSndtimeo
-
--- | <https://nanomsg.org/v1.1.5/nn_recv.html>
-recv ::
-     Socket
-  -> Addr
-  -> CSize
-  -> RecvFlags
-  -> IO (Either Errno CInt)
-recv (Socket fd) (Addr addr) len flags =
-  nn_recv fd addr len (unRecvFlags flags) >>= \case
-    -1 ->
-      Left <$> getErrno
-
-    received ->
-      pure (Right received)
-
--- | <https://nanomsg.org/v1.1.5/nn_send.html>
-send ::
-     Socket
-  -> Addr
-  -> CSize
-  -> SendFlags
-  -> IO (Either Errno CInt)
-send (Socket fd) (Addr addr) len flags =
-  nn_send fd addr len (unSendFlags flags) >>= \case
-    -1 ->
-      Left <$> getErrno
-
-    sent ->
-      pure (Right sent)
+--------------------------------------------------------------------------------
+-- Socket options
+--------------------------------------------------------------------------------
 
 -- | <https://nanomsg.org/v1.1.5/nn_setsockopt.html>
 setsockopt ::
@@ -377,40 +297,173 @@ setSendTimeout ::
 setSendTimeout socket =
   setsockopt_int socket levelSocket optionSndtimeo
 
--- | <https://nanomsg.org/v1.1.5/nn_shutdown.html>
-shutdown :: Socket -> Endpoint -> IO (Either Errno ())
-shutdown (Socket fd) (Endpoint endpoint) =
-  go
+-- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
+getsockopt ::
+     Socket
+  -> Level
+  -> Option
+  -> Ptr a
+  -> Ptr CSize
+  -> IO (Either Errno ())
+getsockopt (Socket fd) level option value size =
+  nn_getsockopt fd (unLevel level) (unOption option) value size >>= \case
+    0 ->
+      pure (Right ())
 
-  where
-    go :: IO (Either Errno ())
-    go =
-      nn_shutdown fd endpoint >>= \case
-        0 -> pure (Right ())
-        _ -> do
-          errno <- getErrno
-          if errno == eINTR
-            then go
-            else pure (Left errno)
+    _ ->
+      Left <$> getErrno
 
--- | <https://nanomsg.org/v1.1.5/nn_socket.html>
-socket :: Domain -> Protocol -> IO (Either Errno Socket)
-socket domain protocol = do
-  fd :: CInt <-
-    nn_socket (unDomain domain) (unProtocol protocol)
+getsockopt_int ::
+     Socket
+  -> Level
+  -> Option
+  -> IO (Either Errno CInt)
+getsockopt_int socket level option =
+  alloca $ \valuePtr ->
+  alloca $ \sizePtr ->
+    getsockopt socket level option valuePtr sizePtr >>= \case
+      Left errno -> pure (Left errno)
+      Right () -> Right <$> peek valuePtr
 
-  if fd < 0
-    then Left <$> getErrno
-    else pure (Right (Socket fd))
+ipv4Only ::
+     Socket
+  -> IO (Either Errno Bool)
+ipv4Only socket =
+  (fmap.fmap)
+    (\n -> if n == 0 then False else True)
+    (getsockopt_int socket levelSocket optionIpv4only)
+
+maxReconnectInterval ::
+     Socket
+  -> IO (Either Errno CInt)
+maxReconnectInterval socket =
+  getsockopt_int socket levelSocket optionReconnectIvlMax
+
+maxRecvSize ::
+     Socket
+  -> IO (Either Errno CInt)
+maxRecvSize socket =
+  getsockopt_int socket levelSocket optionRcvmaxsize
+
+maxTTL ::
+     Socket
+  -> IO (Either Errno CInt)
+maxTTL socket =
+  getsockopt_int socket levelSocket optionMaxttl
+
+reconnectInterval ::
+     Socket
+  -> IO (Either Errno CInt)
+reconnectInterval socket =
+  getsockopt_int socket levelSocket optionReconnectIvl
+
+recvBufferSize ::
+     Socket
+  -> IO (Either Errno CInt)
+recvBufferSize socket =
+  getsockopt_int socket levelSocket optionRcvbuf
+
+recvFd ::
+     Socket
+  -> IO (Either Errno Fd)
+recvFd socket =
+  coerce (getsockopt_int socket levelSocket optionRcvfd)
+
+recvPriority ::
+     Socket
+  -> IO (Either Errno CInt)
+recvPriority socket =
+  getsockopt_int socket levelSocket optionRcvprio
+
+recvTimeout ::
+     Socket
+  -> IO (Either Errno CInt)
+recvTimeout socket =
+  getsockopt_int socket levelSocket optionRcvtimeo
+
+sendBufferSize ::
+     Socket
+  -> IO (Either Errno CInt)
+sendBufferSize socket =
+  getsockopt_int socket levelSocket optionSndbuf
+
+sendFd ::
+     Socket
+  -> IO (Either Errno Fd)
+sendFd socket =
+  coerce (getsockopt_int socket levelSocket optionSndfd)
+
+sendPriority ::
+     Socket
+  -> IO (Either Errno CInt)
+sendPriority socket =
+  getsockopt_int socket levelSocket optionSndprio
+
+sendTimeout ::
+     Socket
+  -> IO (Either Errno CInt)
+sendTimeout socket =
+  getsockopt_int socket levelSocket optionSndtimeo
+
+
+--------------------------------------------------------------------------------
+-- Messaging
+--------------------------------------------------------------------------------
+
+-- | <https://nanomsg.org/v1.1.5/nn_send.html>
+send ::
+     Socket
+  -> Addr
+  -> CSize
+  -> SendFlags
+  -> IO (Either Errno CInt)
+send (Socket fd) (Addr addr) len flags =
+  nn_send fd addr len (unSendFlags flags) >>= \case
+    -1 ->
+      Left <$> getErrno
+
+    sent ->
+      pure (Right sent)
+
+-- | <https://nanomsg.org/v1.1.5/nn_recv.html>
+recv ::
+     Socket
+  -> Addr
+  -> CSize
+  -> RecvFlags
+  -> IO (Either Errno CInt)
+recv (Socket fd) (Addr addr) len flags =
+  nn_recv fd addr len (unRecvFlags flags) >>= \case
+    -1 ->
+      Left <$> getErrno
+
+    received ->
+      pure (Right received)
+
+
+--------------------------------------------------------------------------------
+-- Error reporting
+--------------------------------------------------------------------------------
 
 -- | <https://nanomsg.org/v1.1.5/nn_strerror.html>
 strerror :: Errno -> IO Text
 strerror (Errno errno) =
   Text.pack <$> (peekCString =<< nn_strerror errno)
 
+
+--------------------------------------------------------------------------------
+-- Teardown
+--------------------------------------------------------------------------------
+
+-- | <https://nanomsg.org/v1.1.5/nn_term.html>
 term :: IO ()
 term =
   nn_term
+
+
+--------------------------------------------------------------------------------
+-- Nanomsg version
+--------------------------------------------------------------------------------
 
 version :: (Int, Int)
 version =
