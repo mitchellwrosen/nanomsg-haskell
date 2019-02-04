@@ -1,47 +1,81 @@
 module Libnanomsg.Option
   ( Option(..)
-  , toCInt
+  , optionIpv4only
+  , optionMaxttl
+  , optionRcvbuf
+  , optionRcvmaxsize
+  , optionRcvprio
+  , optionRcvtimeo
+  , optionReconnectIvl
+  , optionReconnectIvlMax
+  , optionSndbuf
+  , optionSndprio
+  , optionSndtimeo
   ) where
 
 #include "nanomsg/nn.h"
 
 import Foreign.C
 
-data Option
-  = DOMAIN
-  | IPV4ONLY
-  | LINGER
-  | MAXTTL
-  | PROTOCOL
-  | RCVBUF
-  | RCVFD
-  | RCVMAXSIZE
-  | RCVPRIO
-  | RCVTIMEO
-  | RECONNECT_IVL
-  | RECONNECT_IVL_MAX
-  | SNDBUF
-  | SNDFD
-  | SNDPRIO
-  | SNDTIMEO
-  | SOCKET_NAME
+newtype Option
+  = Option { unOption :: CInt }
 
-toCInt :: Option -> CInt
-toCInt = \case
-  DOMAIN -> 12
-  IPV4ONLY -> 14
-  LINGER -> 1
-  MAXTTL -> 17
-  PROTOCOL -> 13
-  RCVBUF -> 3
-  RCVFD -> 11
-  RCVMAXSIZE -> 16
-  RCVPRIO -> 9
-  RCVTIMEO -> 5
-  RECONNECT_IVL -> 6
-  RECONNECT_IVL_MAX -> 7
-  SNDBUF -> 2
-  SNDFD -> 10
-  SNDPRIO -> 8
-  SNDTIMEO -> 4
-  SOCKET_NAME -> 15
+optionDomain :: Option
+optionDomain =
+  Option (#const NN_DOMAIN)
+
+optionIpv4only :: Option
+optionIpv4only =
+  Option (#const NN_IPV4ONLY)
+
+optionMaxttl :: Option
+optionMaxttl =
+  Option (#const NN_MAXTTL)
+
+optionProtocol :: Option
+optionProtocol =
+  Option (#const NN_PROTOCOL)
+
+optionRcvbuf :: Option
+optionRcvbuf =
+  Option (#const NN_RCVBUF)
+
+optionRcvfd :: Option
+optionRcvfd =
+  Option (#const NN_RCVFD)
+
+optionRcvmaxsize :: Option
+optionRcvmaxsize =
+  Option (#const NN_RCVMAXSIZE)
+
+optionRcvprio :: Option
+optionRcvprio =
+  Option (#const NN_RCVPRIO)
+
+optionRcvtimeo :: Option
+optionRcvtimeo =
+  Option (#const NN_RCVTIMEO)
+
+optionReconnectIvl :: Option
+optionReconnectIvl =
+  Option (#const NN_RECONNECT_IVL)
+
+optionReconnectIvlMax :: Option
+optionReconnectIvlMax =
+  Option (#const NN_RECONNECT_IVL_MAX)
+
+optionSndbuf :: Option
+optionSndbuf =
+  Option (#const NN_SNDBUF)
+
+optionSndfd :: Option
+optionSndfd =
+  Option (#const NN_SNDFD)
+
+optionSndprio :: Option
+optionSndprio =
+  Option (#const NN_SNDPRIO)
+
+optionSndtimeo :: Option
+optionSndtimeo =
+  Option (#const NN_SNDTIMEO)

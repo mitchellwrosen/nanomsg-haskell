@@ -1,21 +1,40 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing                 #-}
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Libnanomsg
   ( bind
   , close
   , connect
-  , getsockopt
+  , getIPv4Only
+  , getMaxReconnectInterval
+  , getMaxRecvSize
+  , getMaxTTL
+  , getReconnectInterval
+  , getRecvBufferSize
+  , getRecvPriority
+  , getRecvTimeout
+  , getSendBufferSize
+  , getSendPriority
+  , getSendTimeout
   , recv
   , send
-  , setsockopt
+  , setIPv4Only
+  , setMaxReconnectInterval
+  , setMaxRecvSize
+  , setMaxTTL
+  , setReconnectInterval
+  , setRecvBufferSize
+  , setRecvPriority
+  , setRecvTimeout
+  , setSendBufferSize
+  , setSendPriority
+  , setSendTimeout
   , shutdown
   , socket
   , version
   , Domain
   , domainSp
   , domainSpRaw
-  , Level
-  , levelSocket
   , Protocol
   , protocolBus
   , protocolPair
@@ -40,20 +59,21 @@ module Libnanomsg
 import Libnanomsg.Domain
 import Libnanomsg.FFI
 import Libnanomsg.Level
-import Libnanomsg.Option (Option)
+import Libnanomsg.Option
 import Libnanomsg.Protocol
 import Libnanomsg.RecvFlags
 import Libnanomsg.SendFlags
 import Libnanomsg.Transport (Transport)
 
-import qualified Libnanomsg.Option as Option
 import qualified Libnanomsg.Transport as Transport
 
 import Data.ByteString (ByteString)
 import Data.Primitive.Addr (Addr(..))
 import Data.Text (Text)
 import Foreign.C
+import Foreign.Marshal.Alloc (alloca)
 import Foreign.Ptr (Ptr)
+import Foreign.Storable (peek, poke, sizeOf)
 
 import qualified Data.ByteString.Unsafe as ByteString
 import qualified Data.Text.Encoding as Text
@@ -117,12 +137,92 @@ getsockopt ::
   -> Ptr CSize
   -> IO (Either Errno ())
 getsockopt (Socket fd) level option value size =
-  nn_getsockopt fd (unLevel level) (Option.toCInt option) value size >>= \case
+  nn_getsockopt fd (unLevel level) (unOption option) value size >>= \case
     0 ->
       pure (Right ())
 
     _ ->
       Left <$> getErrno
+
+getsockopt_int ::
+     Socket
+  -> Level
+  -> Option
+  -> IO (Either Errno CInt)
+getsockopt_int socket level option =
+  alloca $ \valuePtr ->
+  alloca $ \sizePtr ->
+    getsockopt socket level option valuePtr sizePtr >>= \case
+      Left errno -> pure (Left errno)
+      Right () -> Right <$> peek valuePtr
+
+getIPv4Only ::
+     Socket
+  -> IO (Either Errno Bool)
+getIPv4Only socket =
+  (fmap.fmap)
+    (\n -> if n == 0 then False else True)
+    (getsockopt_int socket levelSocket optionIpv4only)
+
+getMaxReconnectInterval ::
+     Socket
+  -> IO (Either Errno CInt)
+getMaxReconnectInterval socket =
+  getsockopt_int socket levelSocket optionReconnectIvlMax
+
+getMaxRecvSize ::
+     Socket
+  -> IO (Either Errno CInt)
+getMaxRecvSize socket =
+  getsockopt_int socket levelSocket optionRcvmaxsize
+
+getMaxTTL ::
+     Socket
+  -> IO (Either Errno CInt)
+getMaxTTL socket =
+  getsockopt_int socket levelSocket optionMaxttl
+
+getReconnectInterval ::
+     Socket
+  -> IO (Either Errno CInt)
+getReconnectInterval socket =
+  getsockopt_int socket levelSocket optionReconnectIvl
+
+getRecvBufferSize ::
+     Socket
+  -> IO (Either Errno CInt)
+getRecvBufferSize socket =
+  getsockopt_int socket levelSocket optionRcvbuf
+
+getRecvPriority ::
+     Socket
+  -> IO (Either Errno CInt)
+getRecvPriority socket =
+  getsockopt_int socket levelSocket optionRcvprio
+
+getRecvTimeout ::
+     Socket
+  -> IO (Either Errno CInt)
+getRecvTimeout socket =
+  getsockopt_int socket levelSocket optionRcvtimeo
+
+getSendBufferSize ::
+     Socket
+  -> IO (Either Errno CInt)
+getSendBufferSize socket =
+  getsockopt_int socket levelSocket optionSndbuf
+
+getSendPriority ::
+     Socket
+  -> IO (Either Errno CInt)
+getSendPriority socket =
+  getsockopt_int socket levelSocket optionSndprio
+
+getSendTimeout ::
+     Socket
+  -> IO (Either Errno CInt)
+getSendTimeout socket =
+  getsockopt_int socket levelSocket optionSndtimeo
 
 -- | <https://nanomsg.org/v1.1.5/nn_recv.html>
 recv ::
@@ -163,12 +263,100 @@ setsockopt ::
   -> CSize
   -> IO (Either Errno ())
 setsockopt (Socket fd) level option value len =
-  nn_setsockopt fd (unLevel level) (Option.toCInt option) value len >>= \case
+  nn_setsockopt fd (unLevel level) (unOption option) value len >>= \case
     0 ->
       pure (Right ())
 
     _ ->
       Left <$> getErrno
+
+setsockopt_int ::
+     Socket
+  -> Level
+  -> Option
+  -> CInt
+  -> IO (Either Errno ())
+setsockopt_int socket level option value =
+  alloca $ \ptr -> do
+    poke ptr value
+    setsockopt socket level option ptr (fromIntegral (sizeOf (undefined :: CInt)))
+
+setIPv4Only ::
+     Socket
+  -> Bool
+  -> IO (Either Errno ())
+setIPv4Only socket value =
+  setsockopt_int socket levelSocket optionIpv4only (if value then 1 else 0)
+
+setMaxReconnectInterval ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setMaxReconnectInterval socket =
+  setsockopt_int socket levelSocket optionReconnectIvlMax
+
+setMaxRecvSize ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setMaxRecvSize socket =
+  setsockopt_int socket levelSocket optionRcvmaxsize
+
+setMaxTTL ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setMaxTTL socket =
+  setsockopt_int socket levelSocket optionMaxttl
+
+setReconnectInterval ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setReconnectInterval socket =
+  setsockopt_int socket levelSocket optionReconnectIvl
+
+setRecvBufferSize ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setRecvBufferSize socket =
+  setsockopt_int socket levelSocket optionRcvbuf
+
+setRecvPriority ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setRecvPriority socket =
+  setsockopt_int socket levelSocket optionRcvprio
+
+setRecvTimeout ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setRecvTimeout socket =
+  setsockopt_int socket levelSocket optionRcvtimeo
+
+setSendBufferSize ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setSendBufferSize socket =
+  setsockopt_int socket levelSocket optionSndbuf
+
+setSendPriority ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setSendPriority socket =
+  setsockopt_int socket levelSocket optionSndprio
+
+setSendTimeout ::
+     Socket
+  -> CInt
+  -> IO (Either Errno ())
+setSendTimeout socket =
+  setsockopt_int socket levelSocket optionSndtimeo
 
 -- | <https://nanomsg.org/v1.1.5/nn_shutdown.html>
 shutdown :: Socket -> Endpoint -> IO (Either Errno ())
