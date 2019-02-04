@@ -83,6 +83,7 @@ newtype Endpoint
 
 newtype Socket
   = Socket CInt
+  deriving (Eq, Show)
 
 -- | <https://nanomsg.org/v1.1.5/nn_bind.html>
 bind :: Socket -> Transport -> Text -> IO (Either Errno Endpoint)
