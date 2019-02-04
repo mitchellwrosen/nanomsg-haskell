@@ -67,5 +67,6 @@ library
     Libnanomsg.Level
     Libnanomsg.Option
     Libnanomsg.Protocol
+    Libnanomsg.RecvFlags
     Libnanomsg.SendFlags
     Libnanomsg.Transport

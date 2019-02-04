@@ -5,6 +5,7 @@ module Libnanomsg
   , close
   , connect
   , getsockopt
+  , recv
   , send
   , setsockopt
   , shutdown
@@ -26,6 +27,8 @@ module Libnanomsg
   , protocolRespondent
   , protocolSub
   , protocolSurveyor
+  , RecvFlags
+  , recvFlagDontwait
   , SendFlags
   , sendFlagDontwait
   , Socket
@@ -39,6 +42,7 @@ import Libnanomsg.FFI
 import Libnanomsg.Level
 import Libnanomsg.Option (Option)
 import Libnanomsg.Protocol
+import Libnanomsg.RecvFlags
 import Libnanomsg.SendFlags
 import Libnanomsg.Transport (Transport)
 
@@ -120,6 +124,22 @@ getsockopt (Socket fd) level option value size =
     _ ->
       Left <$> getErrno
 
+-- | <https://nanomsg.org/v1.1.5/nn_recv.html>
+recv ::
+     Socket
+  -> Addr
+  -> CSize
+  -> RecvFlags
+  -> IO (Either Errno CInt)
+recv (Socket fd) (Addr addr) len flags =
+  nn_recv fd addr len (unRecvFlags flags) >>= \case
+    -1 ->
+      Left <$> getErrno
+
+    received ->
+      pure (Right received)
+
+-- | <https://nanomsg.org/v1.1.5/nn_send.html>
 send ::
      Socket
   -> Addr

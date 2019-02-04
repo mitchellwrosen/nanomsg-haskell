@@ -16,6 +16,9 @@ foreign import ccall safe "nn_connect"
 foreign import ccall safe "nn_getsockopt"
   nn_getsockopt :: CInt -> CInt -> CInt -> Ptr a -> Ptr CSize -> IO CInt
 
+foreign import ccall safe "nn_recv"
+  nn_recv :: CInt -> Addr# -> CSize -> CInt -> IO CInt
+
 foreign import ccall safe "nn_send"
   nn_send :: CInt -> Addr# -> CSize -> CInt -> IO CInt
 
