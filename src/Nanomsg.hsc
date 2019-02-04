@@ -445,17 +445,17 @@ withSocket t = bracket (socket t) close
 -- See also: 'connect', 'shutdown'.
 bind :: Socket a -> String -> IO Endpoint
 bind (Socket _ sid) addr = do
-    (transport, addr') <- parseTransport addr
-    Libnanomsg.bind sid transport (T.pack addr') >>= \case
+    addr' <- parseAddress addr
+    Libnanomsg.bind sid addr' >>= \case
         Left errno -> throwErrno' "bind" errno
         Right endpoint -> pure (Endpoint endpoint)
     where
-        parseTransport :: String -> IO (Libnanomsg.Transport, String)
-        parseTransport = \case
-            (stripPrefix "inproc://" -> Just addr') -> pure (Libnanomsg.transportInproc, addr')
-            (stripPrefix "ipc://"    -> Just addr') -> pure (Libnanomsg.transportIpc,    addr')
-            (stripPrefix "tcp://"    -> Just addr') -> pure (Libnanomsg.transportTcp,    addr')
-            (stripPrefix "ws://"     -> Just addr') -> pure (Libnanomsg.transportWs,     addr')
+        parseAddress :: String -> IO Libnanomsg.Address
+        parseAddress = \case
+            (stripPrefix "inproc://" -> Just addr') -> pure (Libnanomsg.Inproc (C.pack addr'))
+            (stripPrefix "ipc://"    -> Just addr') -> pure (Libnanomsg.Ipc    (C.pack addr'))
+            (stripPrefix "tcp://"    -> Just addr') -> pure (Libnanomsg.Tcp    (C.pack addr'))
+            (stripPrefix "ws://"     -> Just addr') -> pure (Libnanomsg.Ws     (C.pack addr'))
             _ -> throwIO (NNException ("Invalid address " ++ show addr))
 
 ---- | Connects the socket to an endpoint.

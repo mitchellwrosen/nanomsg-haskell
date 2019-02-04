@@ -62,6 +62,7 @@ library
     nanomsg/nn.h
 
   other-modules:
+    Libnanomsg.Address
     Libnanomsg.Domain
     Libnanomsg.FFI
     Libnanomsg.Level
@@ -69,4 +70,3 @@ library
     Libnanomsg.Protocol
     Libnanomsg.RecvFlags
     Libnanomsg.SendFlags
-    Libnanomsg.Transport

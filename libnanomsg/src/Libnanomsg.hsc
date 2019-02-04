@@ -2,7 +2,8 @@
 {-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Libnanomsg
-  ( bind
+  ( Address(..)
+  , bind
   , close
   , connect
   , getIPv4Only
@@ -32,6 +33,7 @@ module Libnanomsg
   , shutdown
   , socket
   , version
+  , Address(..)
   , Endpoint
   , Domain
   , domainSp
@@ -52,15 +54,11 @@ module Libnanomsg
   , SendFlags
   , sendFlagDontwait
   , Socket
-  , Transport
-  , transportInproc
-  , transportIpc
-  , transportTcp
-  , transportWs
   ) where
 
 #include "nanomsg/nn.h"
 
+import Libnanomsg.Address (Address(..))
 import Libnanomsg.Domain
 import Libnanomsg.FFI
 import Libnanomsg.Level
@@ -68,7 +66,8 @@ import Libnanomsg.Option
 import Libnanomsg.Protocol
 import Libnanomsg.RecvFlags
 import Libnanomsg.SendFlags
-import Libnanomsg.Transport
+
+import qualified Libnanomsg.Address as Address
 
 import Data.ByteString (ByteString)
 import Data.Primitive.Addr (Addr(..))
@@ -90,20 +89,15 @@ newtype Socket
   deriving (Eq, Show)
 
 -- | <https://nanomsg.org/v1.1.5/nn_bind.html>
-bind :: Socket -> Transport -> Text -> IO (Either Errno Endpoint)
-bind (Socket fd) transport addr =
-  ByteString.unsafeUseAsCString addrBytes $ \caddr ->
+bind :: Socket -> Address -> IO (Either Errno Endpoint)
+bind (Socket fd) address =
+  Address.asCString address $ \caddr ->
     nn_bind fd caddr >>= \case
       -1 ->
         Left <$> getErrno
 
       endpoint ->
         pure (Right (Endpoint endpoint))
-
-  where
-    addrBytes :: ByteString
-    addrBytes =
-      Text.encodeUtf8 (unTransport transport <> addr <> "\0")
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either Errno ())
