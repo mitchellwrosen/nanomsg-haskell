@@ -41,7 +41,7 @@ module Nanomsg
         -- * Operations
         -- ** General operations
         , socket
-        -- , withSocket
+        , withSocket
         -- , bind
         -- , connect
         -- , send
@@ -50,7 +50,7 @@ module Nanomsg
         -- , subscribe
         -- , unsubscribe
         -- , shutdown
-        -- , close
+        , close
         -- , term
         -- -- ** Socket option settings
         -- , linger
@@ -410,24 +410,22 @@ foreign import ccall safe "nn.h nn_strerror"
 -- See also: 'close'.
 socket :: (SocketType a) => a -> IO (Socket a)
 socket t =
-  Libnanomsg.socket Libnanomsg.domainSp (socketType t) >>= \case
-    Left errno -> throwErrno' "socket" errno
-    Right sid -> return $ Socket t sid
-    -- sid <- throwErrnoIfMinus1 "socket" $ c_nn_socket (#const AF_SP) (socketType t)
-    -- return $ Socket t sid
+    Libnanomsg.socket Libnanomsg.domainSp (socketType t) >>= \case
+        Left errno -> throwErrno' "socket" errno
+        Right sid -> return $ Socket t sid
 
----- | Creates a socket and runs your action with it.
-----
----- E.g. collecting 10 messages:
-----
----- > withSocket Sub $ \sub -> do
----- >     _ <- connect sub "tcp://localhost:5560"
----- >     subscribe sub (C.pack "")
----- >     replicateM 10 (recv sub)
-----
----- Ensures the socket is closed when your action is done.
---withSocket :: (SocketType a) => a -> (Socket a -> IO b) -> IO b
---withSocket t = bracket (socket t) close
+-- | Creates a socket and runs your action with it.
+--
+-- E.g. collecting 10 messages:
+--
+-- > withSocket Sub $ \sub -> do
+-- >     _ <- connect sub "tcp://localhost:5560"
+-- >     subscribe sub (C.pack "")
+-- >     replicateM 10 (recv sub)
+--
+-- Ensures the socket is closed when your action is done.
+withSocket :: (SocketType a) => a -> (Socket a -> IO b) -> IO b
+withSocket t = bracket (socket t) close
 
 ---- | Binds the socket to a local interface.
 ----
@@ -529,13 +527,15 @@ socket t =
 --unsubscribe (Socket t sid) string =
 --    setOption (Socket t sid) (socketType t) (#const NN_SUB_UNSUBSCRIBE) (StringOption string)
 
----- | Closes the socket. Any buffered inbound messages that were not yet
----- received by the application will be discarded. The library will try to
----- deliver any outstanding outbound messages for the time specified by
----- NN_LINGER socket option. The call will block in the meantime.
---close :: Socket a -> IO ()
---close (Socket _ sid) =
---    throwErrnoIfMinus1Retry_ "close" $ c_nn_close sid
+-- | Closes the socket. Any buffered inbound messages that were not yet
+-- received by the application will be discarded. The library will try to
+-- deliver any outstanding outbound messages for the time specified by
+-- NN_LINGER socket option. The call will block in the meantime.
+close :: Socket a -> IO ()
+close (Socket _ sid) =
+    Libnanomsg.close sid >>= \case
+        Left errno -> throwErrno' "close" errno
+        Right () -> pure ()
 
 ---- | Switches nanomsg into shutdown modus and interrupts any waiting
 ---- function calls.
