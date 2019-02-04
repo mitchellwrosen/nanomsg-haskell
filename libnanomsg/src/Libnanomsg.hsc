@@ -32,6 +32,7 @@ module Libnanomsg
   , setSendTimeout
   , shutdown
   , socket
+  , term
   , threadWaitRecv
   , threadWaitSend
   , version
@@ -398,6 +399,10 @@ socket domain protocol = do
   if fd < 0
     then Left <$> getErrno
     else pure (Right (Socket fd))
+
+term :: IO ()
+term =
+  nn_term
 
 threadWaitRecv :: Socket -> IO ()
 threadWaitRecv socket =

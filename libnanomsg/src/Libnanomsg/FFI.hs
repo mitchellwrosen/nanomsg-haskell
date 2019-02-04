@@ -34,5 +34,5 @@ foreign import ccall safe "nn_socket"
 -- foreign import ccall safe "nn.h nn_strerror"
 --   nn_strerror :: CInt -> IO CString
 
--- foreign import ccall safe "nn.h nn_term"
---   nn_term :: IO ()
+foreign import ccall safe "nn.h nn_term"
+  nn_term :: IO ()

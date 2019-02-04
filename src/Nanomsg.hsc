@@ -51,7 +51,7 @@ module Nanomsg
         -- , unsubscribe
         , shutdown
         , close
-        -- , term
+        , term
         -- -- ** Socket option settings
         -- , linger
         -- , setLinger
@@ -551,10 +551,11 @@ close (Socket _ sid) =
         Left errno -> throwErrno' "close" errno
         Right () -> pure ()
 
----- | Switches nanomsg into shutdown modus and interrupts any waiting
----- function calls.
---term :: IO ()
---term = c_nn_term
+-- | Switches nanomsg into shutdown modus and interrupts any waiting
+-- function calls.
+term :: IO ()
+term =
+    Libnanomsg.term
 
 
 ---- * Socket option accessors and mutators
