@@ -13,6 +13,9 @@ foreign import ccall safe "nn_close"
 foreign import ccall safe "nn_connect"
   nn_connect :: CInt -> CString -> IO CInt
 
+foreign import ccall safe "nn_device"
+  nn_device :: CInt -> CInt -> IO CInt
+
 foreign import ccall safe "nn_get_statistic"
   nn_get_statistic :: CInt -> CInt -> IO CULong
 

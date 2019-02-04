@@ -69,6 +69,9 @@ module Libnanomsg
     -- * Nanomsg version
   , version
 
+    -- * Misc. TODO Figure out how to organize these
+  , device
+
     -- * Types
   , Address(..)
   , Endpoint
@@ -109,6 +112,7 @@ import qualified Libnanomsg.Address as Address
 import Data.Coerce (coerce)
 import Data.Primitive.Addr (Addr(..))
 import Data.Text (Text)
+import Data.Void (Void)
 import Foreign.C
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Ptr (Ptr)
@@ -573,3 +577,21 @@ version =
   where
     x = #const NN_VERSION_CURRENT
     y = #const NN_VERSION_REVISION
+
+-- Misc
+
+device ::
+     Socket
+  -> Socket
+  -> IO (Either Errno Void)
+device (Socket fd1) (Socket fd2) =
+  go
+
+  where
+    go :: IO (Either Errno Void)
+    go = do
+      _ <- nn_device fd1 fd2
+      errno <- getErrno
+      if errno == eINTR
+        then go
+        else pure (Left errno)
