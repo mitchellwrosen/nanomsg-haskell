@@ -43,7 +43,7 @@ module Nanomsg
         , socket
         , withSocket
         , bind
-        -- , connect
+        , connect
         -- , send
         -- , recv
         -- , recv'
@@ -449,28 +449,29 @@ bind (Socket _ sid) addr = do
     Libnanomsg.bind sid addr' >>= \case
         Left errno -> throwErrno' "bind" errno
         Right endpoint -> pure (Endpoint endpoint)
-    where
-        parseAddress :: String -> IO Libnanomsg.Address
-        parseAddress = \case
-            (stripPrefix "inproc://" -> Just addr') -> pure (Libnanomsg.Inproc (C.pack addr'))
-            (stripPrefix "ipc://"    -> Just addr') -> pure (Libnanomsg.Ipc    (C.pack addr'))
-            (stripPrefix "tcp://"    -> Just addr') -> pure (Libnanomsg.Tcp    (C.pack addr'))
-            (stripPrefix "ws://"     -> Just addr') -> pure (Libnanomsg.Ws     (C.pack addr'))
-            _ -> throwIO (NNException ("Invalid address " ++ show addr))
 
----- | Connects the socket to an endpoint.
-----
----- e.g. :
-----
----- > connect sock "tcp://localhost:5560"
----- > connect sock "inproc://test"
-----
----- See also: 'bind', 'shutdown'.
---connect :: Socket a -> String -> IO Endpoint
---connect (Socket _ sid) addr =
---    withCString addr $ \adr -> do
---        epid <- throwErrnoIfMinus1 "connect" $ c_nn_connect sid adr
---        return $ Endpoint epid
+-- | Connects the socket to an endpoint.
+--
+-- e.g. :
+--
+-- > connect sock "tcp://localhost:5560"
+-- > connect sock "inproc://test"
+--
+-- See also: 'bind', 'shutdown'.
+connect :: Socket a -> String -> IO Endpoint
+connect (Socket _ sid) addr = do
+    addr' <- parseAddress addr
+    Libnanomsg.connect sid addr' >>= \case
+        Left errno -> throwErrno' "connect" errno
+        Right endpoint -> pure (Endpoint endpoint)
+
+parseAddress :: String -> IO Libnanomsg.Address
+parseAddress = \case
+    (stripPrefix "inproc://" -> Just addr') -> pure (Libnanomsg.Inproc (C.pack addr'))
+    (stripPrefix "ipc://"    -> Just addr') -> pure (Libnanomsg.Ipc    (C.pack addr'))
+    (stripPrefix "tcp://"    -> Just addr') -> pure (Libnanomsg.Tcp    (C.pack addr'))
+    (stripPrefix "ws://"     -> Just addr') -> pure (Libnanomsg.Ws     (C.pack addr'))
+    addr -> throwIO (NNException ("Invalid address " ++ show addr))
 
 ---- | Removes an endpoint from a socket.
 ----

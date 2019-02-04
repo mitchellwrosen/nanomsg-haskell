@@ -118,14 +118,15 @@ close (Socket fd) =
             else pure (Left errno)
 
 -- | <https://nanomsg.org/v1.1.5/nn_connect.html>
-connect :: Socket -> CString -> IO (Either Errno Endpoint)
-connect (Socket fd) addr = do
-  endpoint :: CInt <-
-    nn_connect fd addr
+connect :: Socket -> Address -> IO (Either Errno Endpoint)
+connect (Socket fd) address =
+  Address.asCString address $ \caddr -> do
+    endpoint :: CInt <-
+      nn_connect fd caddr
 
-  if endpoint < 0
-    then Left <$> getErrno
-    else pure (Right (Endpoint endpoint))
+    if endpoint < 0
+      then Left <$> getErrno
+      else pure (Right (Endpoint endpoint))
 
 -- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
 getsockopt ::
