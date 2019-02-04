@@ -37,7 +37,7 @@ module Nanomsg
         , NNException
         , SocketType
         , Sender
-        -- , Receiver
+        , Receiver
         -- * Operations
         -- ** General operations
         , socket
@@ -49,7 +49,7 @@ module Nanomsg
         -- , recv'
         -- , subscribe
         -- , unsubscribe
-        -- , shutdown
+        , shutdown
         , close
         -- , term
         -- -- ** Socket option settings
@@ -236,16 +236,16 @@ instance Sender Respondent
 instance Sender Push
 instance Sender Bus
 
----- | Typeclass for sockets that implement recv
---class (SocketType a) => Receiver a
---instance Receiver Pair
---instance Receiver Req
---instance Receiver Rep
---instance Receiver Sub
---instance Receiver Surveyor
---instance Receiver Respondent
---instance Receiver Pull
---instance Receiver Bus
+-- | Typeclass for sockets that implement recv
+class (SocketType a) => Receiver a
+instance Receiver Pair
+instance Receiver Req
+instance Receiver Rep
+instance Receiver Sub
+instance Receiver Surveyor
+instance Receiver Respondent
+instance Receiver Pull
+instance Receiver Bus
 
 
 ---- * Error handling
@@ -474,12 +474,14 @@ parseAddress = \case
     (stripPrefix "ws://"     -> Just addr') -> pure (Libnanomsg.Ws     (C.pack addr'))
     addr -> throwIO (NNException ("Invalid address " ++ show addr))
 
----- | Removes an endpoint from a socket.
-----
----- See also: 'bind', 'connect'.
---shutdown :: Socket a -> Endpoint -> IO ()
---shutdown (Socket _ sid) (Endpoint eid) =
---    throwErrnoIfMinus1_ "shutdown" $ c_nn_shutdown sid eid
+-- | Removes an endpoint from a socket.
+--
+-- See also: 'bind', 'connect'.
+shutdown :: Socket a -> Endpoint -> IO ()
+shutdown (Socket _ sid) (Endpoint eid) =
+    Libnanomsg.shutdown sid eid >>= \case
+        Left errno -> throwErrno' "shutdown" errno
+        Right () -> pure ()
 
 -- | Blocking function for sending a message
 --
