@@ -5,6 +5,7 @@ module Libnanomsg
   , close
   , connect
   , getsockopt
+  , send
   , setsockopt
   , shutdown
   , socket
@@ -25,6 +26,8 @@ module Libnanomsg
   , protocolRespondent
   , protocolSub
   , protocolSurveyor
+  , SendFlags
+  , sendFlagDontwait
   , Socket
   , Transport(..)
   ) where
@@ -36,12 +39,14 @@ import Libnanomsg.FFI
 import Libnanomsg.Level
 import Libnanomsg.Option (Option)
 import Libnanomsg.Protocol
+import Libnanomsg.SendFlags
 import Libnanomsg.Transport (Transport)
 
 import qualified Libnanomsg.Option as Option
 import qualified Libnanomsg.Transport as Transport
 
 import Data.ByteString (ByteString)
+import Data.Primitive.Addr (Addr(..))
 import Data.Text (Text)
 import Foreign.C
 import Foreign.Ptr (Ptr)
@@ -114,6 +119,20 @@ getsockopt (Socket fd) level option value size =
 
     _ ->
       Left <$> getErrno
+
+send ::
+     Socket
+  -> Addr
+  -> CSize
+  -> SendFlags
+  -> IO (Either Errno CInt)
+send (Socket fd) (Addr addr) len flags =
+  nn_send fd addr len (unSendFlags flags) >>= \case
+    -1 ->
+      Left <$> getErrno
+
+    sent ->
+      pure (Right sent)
 
 -- | <https://nanomsg.org/v1.1.5/nn_setsockopt.html>
 setsockopt ::
