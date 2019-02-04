@@ -12,9 +12,11 @@ module Libnanomsg
   , getMaxTTL
   , getReconnectInterval
   , getRecvBufferSize
+  , getRecvFd
   , getRecvPriority
   , getRecvTimeout
   , getSendBufferSize
+  , getSendFd
   , getSendPriority
   , getSendTimeout
   , recv
@@ -33,8 +35,6 @@ module Libnanomsg
   , shutdown
   , socket
   , term
-  , threadWaitRecv
-  , threadWaitSend
   , version
   , Address(..)
   , Endpoint
@@ -403,18 +403,6 @@ socket domain protocol = do
 term :: IO ()
 term =
   nn_term
-
-threadWaitRecv :: Socket -> IO ()
-threadWaitRecv socket =
-  getRecvFd socket >>= \case
-    Left _ -> pure () -- Ignore errors
-    Right fd -> threadWaitRead fd
-
-threadWaitSend :: Socket -> IO ()
-threadWaitSend socket =
-  getSendFd socket >>= \case
-    Left _ -> pure () -- Ignore errors
-    Right fd -> threadWaitRead fd
 
 version :: (Int, Int)
 version =

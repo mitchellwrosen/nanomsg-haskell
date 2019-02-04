@@ -105,7 +105,7 @@ import Data.List (stripPrefix)
 import Data.Typeable (Typeable)
 import Control.Monad (void)
 import Text.Printf (printf)
-import Control.Concurrent (threadWaitRead, threadWaitWrite)
+import Control.Concurrent (threadWaitRead)
 import System.Posix.Types (Fd(..))
 
 
@@ -493,8 +493,12 @@ send (Socket t sid) string =
             Left errno ->
                 if errno == eAGAIN
                     then do
-                        Libnanomsg.threadWaitSend sid
-                        send (Socket t sid) string
+                        Libnanomsg.getSendFd sid >>= \case
+                            Left errno' ->
+                                throwErrno' "getSendFd" errno'
+                            Right fd -> do
+                                threadWaitRead fd
+                                send (Socket t sid) string
                     else do
                         throwErrno' "send" errno
 
