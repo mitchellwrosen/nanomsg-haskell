@@ -9,29 +9,38 @@ module Libnanomsg
   , shutdown
   , socket
   , version
-  , Domain(..)
-  , Operation(..)
-  , Protocol(..)
+  , Domain
+  , domainSp
+  , domainSpRaw
+  , Level
+  , levelSocket
+  , Protocol
+  , protocolBus
+  , protocolPair
+  , protocolPub
+  , protocolPull
+  , protocolPush
+  , protocolRep
+  , protocolReq
+  , protocolRespondent
+  , protocolSub
+  , protocolSurveyor
   , Socket
   , Transport(..)
   ) where
 
 #include "nanomsg/nn.h"
 
-import Internal
-import Libnanomsg.Domain (Domain)
-import Libnanomsg.Level (Level)
+import Libnanomsg.Domain
+import Libnanomsg.FFI
+import Libnanomsg.Level
 import Libnanomsg.Option (Option)
-import Libnanomsg.Protocol (Protocol)
+import Libnanomsg.Protocol
 import Libnanomsg.Transport (Transport)
 
-import qualified Libnanomsg.Domain as Domain
-import qualified Libnanomsg.Level as Level
 import qualified Libnanomsg.Option as Option
-import qualified Libnanomsg.Protocol as Protocol
 import qualified Libnanomsg.Transport as Transport
 
-import Control.Exception (throwIO)
 import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Foreign.C
@@ -47,22 +56,12 @@ newtype Socket
   = Socket CInt
 
 -- | <https://nanomsg.org/v1.1.5/nn_bind.html>
-bind :: Socket -> Transport -> Text -> IO (Either (Error NnBind) Endpoint)
+bind :: Socket -> Transport -> Text -> IO (Either Errno Endpoint)
 bind (Socket fd) transport addr =
   ByteString.unsafeUseAsCString addrBytes $ \caddr ->
     nn_bind fd caddr >>= \case
       -1 ->
-        nn_errno >>= \case
-          EADDRINUSE_      -> pure (Left EADDRINUSE)
-          EADDRNOTAVAIL_   -> pure (Left EADDRNOTAVAIL)
-          EBADF_           -> pure (Left EBADF)
-          EINVAL_          -> pure (Left EINVAL)
-          EMFILE_          -> pure (Left EMFILE)
-          ENAMETOOLONG_    -> pure (Left ENAMETOOLONG)
-          ENODEV_          -> pure (Left ENODEV)
-          EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
-          ETERM_           -> pure (Left ETERM)
-          errno            -> bug "bind" errno
+        Left <$> getErrno
 
       endpoint ->
         pure (Right (Endpoint endpoint))
@@ -73,42 +72,32 @@ bind (Socket fd) transport addr =
       Text.encodeUtf8 (Transport.toText transport <> addr <> "\0")
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
-close :: Socket -> IO (Either (Error NnClose) ())
+close :: Socket -> IO (Either Errno ())
 close (Socket fd) =
   go
 
   where
-    go :: IO (Either (Error NnClose) ())
+    go :: IO (Either Errno ())
     go =
       nn_close fd >>= \case
         0 ->
           pure (Right ())
 
-        _ ->
-          nn_errno >>= \case
-            EBADF_ -> pure (Left EBADF)
-            EINTR_ -> go
-            errno  -> bug "close" errno
+        _ -> do
+          errno <- getErrno
+          if errno == eINTR
+            then go
+            else pure (Left errno)
 
 -- | <https://nanomsg.org/v1.1.5/nn_connect.html>
-connect :: Socket -> CString -> IO (Either (Error NnConnect) Endpoint)
+connect :: Socket -> CString -> IO (Either Errno Endpoint)
 connect (Socket fd) addr = do
   endpoint :: CInt <-
     nn_connect fd addr
 
   if endpoint < 0
-    then
-      nn_errno >>= \case
-        EBADF_           -> pure (Left EBADF)
-        EMFILE_          -> pure (Left EMFILE)
-        EINVAL_          -> pure (Left EINVAL)
-        ENAMETOOLONG_    -> pure (Left ENAMETOOLONG)
-        EPROTONOSUPPORT_ -> pure (Left EPROTONOSUPPORT)
-        ENODEV_          -> pure (Left ENODEV)
-        ETERM_           -> pure (Left ETERM)
-        errno            -> bug "connect" errno
-    else
-      pure (Right (Endpoint endpoint))
+    then Left <$> getErrno
+    else pure (Right (Endpoint endpoint))
 
 -- | https://nanomsg.org/v1.1.5/nn_getsockopt.html
 getsockopt ::
@@ -117,18 +106,14 @@ getsockopt ::
   -> Option
   -> Ptr a
   -> Ptr CSize
-  -> IO (Either (Error NnGetsockopt) ())
+  -> IO (Either Errno ())
 getsockopt (Socket fd) level option value size =
-  nn_getsockopt fd (Level.toCInt level) (Option.toCInt option) value size >>= \case
+  nn_getsockopt fd (unLevel level) (Option.toCInt option) value size >>= \case
     0 ->
       pure (Right ())
 
     _ ->
-      nn_errno >>= \case
-        EBADF_       -> pure (Left EBADF)
-        ENOPROTOOPT_ -> pure (Left ENOPROTOOPT)
-        ETERM_       -> pure (Left ETERM)
-        errno        -> bug "getsockopt" errno
+      Left <$> getErrno
 
 -- | <https://nanomsg.org/v1.1.5/nn_setsockopt.html>
 setsockopt ::
@@ -137,56 +122,40 @@ setsockopt ::
   -> Option
   -> Ptr a
   -> CSize
-  -> IO (Either (Error NnSetsockopt) ())
+  -> IO (Either Errno ())
 setsockopt (Socket fd) level option value len =
-  nn_setsockopt fd (Level.toCInt level) (Option.toCInt option) value len >>= \case
+  nn_setsockopt fd (unLevel level) (Option.toCInt option) value len >>= \case
     0 ->
       pure (Right ())
 
     _ ->
-      nn_errno >>= \case
-        EBADF_       -> pure (Left EBADF)
-        EINVAL_      -> pure (Left EINVAL)
-        ENOPROTOOPT_ -> pure (Left ENOPROTOOPT)
-        ETERM_       -> pure (Left ETERM)
-        errno        -> bug "setsockopt" errno
+      Left <$> getErrno
 
-shutdown :: Socket -> Endpoint -> IO (Either (Error NnShutdown) ())
+-- | <https://nanomsg.org/v1.1.5/nn_shutdown.html>
+shutdown :: Socket -> Endpoint -> IO (Either Errno ())
 shutdown (Socket fd) (Endpoint endpoint) =
   go
 
   where
-    go :: IO (Either (Error NnShutdown) ())
+    go :: IO (Either Errno ())
     go =
       nn_shutdown fd endpoint >>= \case
-        0 ->
-          pure (Right ())
-
-        _ ->
-          nn_errno >>= \case
-            EBADF_  -> pure (Left EBADF)
-            EINVAL_ -> pure (Left EINVAL)
-            EINTR_  -> go
-            ETERM_  -> pure (Left ETERM)
-            errno   -> bug "shutdown" errno
+        0 -> pure (Right ())
+        _ -> do
+          errno <- getErrno
+          if errno == eINTR
+            then go
+            else pure (Left errno)
 
 -- | <https://nanomsg.org/v1.1.5/nn_socket.html>
-socket :: Domain -> Protocol -> IO (Either (Error NnSocket) Socket)
+socket :: Domain -> Protocol -> IO (Either Errno Socket)
 socket domain protocol = do
   fd :: CInt <-
-    nn_socket (Domain.toCInt domain) (Protocol.toCInt protocol)
+    nn_socket (unDomain domain) (unProtocol protocol)
 
   if fd < 0
-    then
-      nn_errno >>= \case
-        EAFNOSUPPORT_ -> pure (Left EAFNOSUPPORT)
-        EINVAL_       -> pure (Left EINVAL)
-        EMFILE_       -> pure (Left EMFILE)
-        ETERM_        -> pure (Left ETERM)
-        errno         -> bug "socket" errno
-
-    else
-      pure (Right (Socket fd))
+    then Left <$> getErrno
+    else pure (Right (Socket fd))
 
 version :: (Int, Int)
 version =
@@ -194,81 +163,3 @@ version =
   where
     x = #const NN_VERSION_CURRENT
     y = #const NN_VERSION_REVISION
-
-pattern EADDRINUSE_ :: CInt
-pattern EADDRINUSE_ = #const EADDRINUSE
-
-pattern EADDRNOTAVAIL_ :: CInt
-pattern EADDRNOTAVAIL_ = #const EADDRNOTAVAIL
-
-pattern EAFNOSUPPORT_ :: CInt
-pattern EAFNOSUPPORT_ = #const EAFNOSUPPORT
-
-pattern EBADF_ :: CInt
-pattern EBADF_ = #const EBADF
-
-pattern EINTR_ :: CInt
-pattern EINTR_ = #const EINTR
-
-pattern EINVAL_ :: CInt
-pattern EINVAL_ = #const EINVAL
-
-pattern EPROTONOSUPPORT_ :: CInt
-pattern EPROTONOSUPPORT_ = #const EPROTONOSUPPORT
-
-pattern EMFILE_ :: CInt
-pattern EMFILE_ = #const EMFILE
-
-pattern ENAMETOOLONG_ :: CInt
-pattern ENAMETOOLONG_ = #const ENAMETOOLONG
-
-pattern ENODEV_ :: CInt
-pattern ENODEV_ = #const ENODEV
-
-pattern ENOPROTOOPT_ :: CInt
-pattern ENOPROTOOPT_ = #const ENOPROTOOPT
-
-pattern ETERM_ :: CInt
-pattern ETERM_ = #const ETERM
-
-foreign import ccall safe "nn.h nn_bind"
-  nn_bind :: CInt -> CString -> IO CInt
-
-foreign import ccall safe "nn.h nn_close"
-  nn_close :: CInt -> IO CInt
-
-foreign import ccall safe "nn.h nn_connect"
-  nn_connect :: CInt -> CString -> IO CInt
-
-foreign import ccall safe "nn.h nn_errno"
-  nn_errno :: IO CInt
-
-foreign import ccall safe "nn.h nn_getsockopt"
-  nn_getsockopt :: CInt -> CInt -> CInt -> Ptr a -> Ptr CSize -> IO CInt
-
-foreign import ccall safe "nn.h nn_setsockopt"
-  nn_setsockopt :: CInt -> CInt -> CInt -> Ptr a -> CSize -> IO CInt
-
-foreign import ccall safe "nn.h nn_shutdown"
-  nn_shutdown :: CInt -> CInt -> IO CInt
-
-foreign import ccall safe "nn.h nn_socket"
-  nn_socket :: CInt -> CInt -> IO CInt
-
--- foreign import ccall safe "nn.h nn_strerror"
---   nn_strerror :: CInt -> IO CString
-
--- foreign import ccall safe "nn.h nn_term"
---   nn_term :: IO ()
-
-bug :: String -> CInt -> IO a
-bug name errno =
-  throwIO (userError msg)
-  where
-    msg :: String
-    msg =
-      concat
-        [ "There is a bug in the `libnanomsg` library: the " ++ name
-        , " function unexpectedly set errno to " ++ show errno ++ ". Please"
-        , " file a bug immediately!"
-        ]

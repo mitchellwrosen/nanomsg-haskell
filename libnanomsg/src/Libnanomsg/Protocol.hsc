@@ -1,6 +1,15 @@
 module Libnanomsg.Protocol
   ( Protocol(..)
-  , toCInt
+  , protocolBus
+  , protocolPair
+  , protocolPub
+  , protocolPull
+  , protocolPush
+  , protocolRep
+  , protocolReq
+  , protocolRespondent
+  , protocolSub
+  , protocolSurveyor
   ) where
 
 #include "nanomsg/bus.h"
@@ -12,27 +21,45 @@ module Libnanomsg.Protocol
 
 import Foreign.C
 
-data Protocol
-  = BUS
-  | PAIR
-  | PUB
-  | PULL
-  | PUSH
-  | REP
-  | REQ
-  | RESPONDENT
-  | SUB
-  | SURVEYOR
+newtype Protocol
+  = Protocol { unProtocol :: CInt }
 
-toCInt :: Protocol -> CInt
-toCInt = \case
-  BUS        -> #const NN_BUS
-  PAIR       -> #const NN_PAIR
-  PUB        -> #const NN_PUB
-  PULL       -> #const NN_PULL
-  PUSH       -> #const NN_PUSH
-  REP        -> #const NN_REP
-  REQ        -> #const NN_REQ
-  RESPONDENT -> #const NN_RESPONDENT
-  SUB        -> #const NN_SUB
-  SURVEYOR   -> #const NN_SURVEYOR
+protocolBus :: Protocol
+protocolBus =
+  Protocol (#const NN_BUS)
+
+protocolPair :: Protocol
+protocolPair =
+  Protocol (#const NN_PAIR)
+
+protocolPub :: Protocol
+protocolPub =
+  Protocol (#const NN_PUB)
+
+protocolPull :: Protocol
+protocolPull =
+  Protocol (#const NN_PULL)
+
+protocolPush :: Protocol
+protocolPush =
+  Protocol (#const NN_PUSH)
+
+protocolRep :: Protocol
+protocolRep =
+  Protocol (#const NN_REP)
+
+protocolReq :: Protocol
+protocolReq =
+  Protocol (#const NN_REQ)
+
+protocolRespondent :: Protocol
+protocolRespondent =
+  Protocol (#const NN_RESPONDENT)
+
+protocolSub :: Protocol
+protocolSub =
+  Protocol (#const NN_SUB)
+
+protocolSurveyor :: Protocol
+protocolSurveyor =
+  Protocol (#const NN_SURVEYOR)

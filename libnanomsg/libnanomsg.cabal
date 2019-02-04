@@ -26,6 +26,7 @@ library
   build-depends:
     base >= 4.5 && < 5,
     bytestring >= 0.9.0 && < 0.11,
+    ghc-prim,
     text
 
   default-extensions:
@@ -34,10 +35,12 @@ library
     GADTs
     KindSignatures
     LambdaCase
+    MagicHash
     OverloadedStrings
     PatternSynonyms
     ScopedTypeVariables
     TypeFamilies
+    UnliftedFFITypes
 
   default-language:
     Haskell2010
@@ -58,8 +61,8 @@ library
     nanomsg/nn.h
 
   other-modules:
-    Internal
     Libnanomsg.Domain
+    Libnanomsg.FFI
     Libnanomsg.Level
     Libnanomsg.Option
     Libnanomsg.Protocol

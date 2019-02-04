@@ -1,15 +1,15 @@
 module Libnanomsg.Level
   ( Level(..)
-  , toCInt
+  , levelSocket
   ) where
 
 #include "nanomsg/nn.h"
 
 import Foreign.C
 
-data Level
-  = SOCKET
+newtype Level
+  = Level { unLevel :: CInt }
 
-toCInt :: Level -> CInt
-toCInt = \case
-  SOCKET -> #const NN_SOL_SOCKET
+levelSocket :: Level
+levelSocket =
+  Level (#const NN_SOL_SOCKET)

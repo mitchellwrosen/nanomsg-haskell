@@ -1,17 +1,20 @@
 module Libnanomsg.Domain
   ( Domain(..)
-  , toCInt
+  , domainSp
+  , domainSpRaw
   ) where
 
 #include "nanomsg/nn.h"
 
 import Foreign.C
 
-data Domain
-  = SP
-  | SP_RAW
+newtype Domain
+  = Domain { unDomain :: CInt }
 
-toCInt :: Domain -> CInt
-toCInt = \case
-  SP -> #const AF_SP
-  SP_RAW -> #const AF_SP_RAW
+domainSp :: Domain
+domainSp =
+  Domain (#const AF_SP)
+
+domainSpRaw :: Domain
+domainSpRaw =
+  Domain (#const AF_SP_RAW)
