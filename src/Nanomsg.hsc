@@ -52,21 +52,21 @@ module Nanomsg
         , shutdown
         , close
         , term
-        -- -- ** Socket option settings
+        -- ** Socket option settings
         -- , linger
         -- , setLinger
-        -- , sndBuf
-        -- , setSndBuf
-        -- , rcvBuf
-        -- , setRcvBuf
-        -- , reconnectInterval
-        -- , setReconnectInterval
-        -- , reconnectIntervalMax
-        -- , setReconnectIntervalMax
-        -- , sndPrio
-        -- , setSndPrio
-        -- , ipv4Only
-        -- , setIpv4Only
+        , sndBuf
+        , setSndBuf
+        , rcvBuf
+        , setRcvBuf
+        , reconnectInterval
+        , setReconnectInterval
+        , reconnectIntervalMax
+        , setReconnectIntervalMax
+        , sndPrio
+        , setSndPrio
+        , ipv4Only
+        , setIpv4Only
         -- , requestResendInterval
         -- , setRequestResendInterval
         -- , surveyorDeadline
@@ -619,134 +619,158 @@ term =
 --setLinger s val =
 --    setOption s (#const NN_SOL_SOCKET) (#const NN_LINGER) (IntOption val)
 
----- | Size of the send buffer, in bytes. To prevent blocking for messages
----- larger than the buffer, exactly one message may be buffered in addition
----- to the data in the send buffer.
-----
----- Default value is 128kB.
---sndBuf :: Socket a -> IO Int
---sndBuf s =
---    fromIntegral <$> getOption s (#const NN_SOL_SOCKET) (#const NN_SNDBUF)
+-- | Size of the send buffer, in bytes. To prevent blocking for messages
+-- larger than the buffer, exactly one message may be buffered in addition
+-- to the data in the send buffer.
+--
+-- Default value is 128kB.
+sndBuf :: Socket a -> IO Int
+sndBuf (Socket _ sid) =
+    Libnanomsg.getSendBufferSize sid >>= \case
+        Left errno -> throwErrno' "sndBuf" errno
+        Right val -> pure (fromIntegral val)
 
----- | Size of the send buffer, in bytes. To prevent blocking for messages
----- larger than the buffer, exactly one message may be buffered in addition
----- to the data in the send buffer.
-----
----- Default value is 128kB.
---setSndBuf :: Socket a -> Int -> IO ()
---setSndBuf s val =
---    setOption s (#const NN_SOL_SOCKET) (#const NN_SNDBUF) (IntOption val)
+-- | Size of the send buffer, in bytes. To prevent blocking for messages
+-- larger than the buffer, exactly one message may be buffered in addition
+-- to the data in the send buffer.
+--
+-- Default value is 128kB.
+setSndBuf :: Socket a -> Int -> IO ()
+setSndBuf (Socket _ sid) val =
+    Libnanomsg.setSendBufferSize sid (fromIntegral val) >>= \case
+        Left errno -> throwErrno' "setSndBuf" errno
+        Right () -> pure ()
 
----- | Size of the receive buffer, in bytes. To prevent blocking for messages
----- larger than the buffer, exactly one message may be buffered in addition
----- to the data in the receive buffer.
-----
----- Default value is 128kB.
---rcvBuf :: Socket a -> IO Int
---rcvBuf s =
---    fromIntegral <$> getOption s (#const NN_SOL_SOCKET) (#const NN_RCVBUF)
+-- | Size of the receive buffer, in bytes. To prevent blocking for messages
+-- larger than the buffer, exactly one message may be buffered in addition
+-- to the data in the receive buffer.
+--
+-- Default value is 128kB.
+rcvBuf :: Socket a -> IO Int
+rcvBuf (Socket _ sid) =
+    Libnanomsg.getRecvBufferSize sid >>= \case
+        Left errno -> throwErrno' "rcvBuf" errno
+        Right val -> pure (fromIntegral val)
 
----- | Size of the receive buffer, in bytes. To prevent blocking for messages
----- larger than the buffer, exactly one message may be buffered in addition
----- to the data in the receive buffer.
-----
----- Default value is 128kB.
---setRcvBuf :: Socket a -> Int -> IO ()
---setRcvBuf s val =
---    setOption s (#const NN_SOL_SOCKET) (#const NN_RCVBUF) (IntOption val)
+-- | Size of the receive buffer, in bytes. To prevent blocking for messages
+-- larger than the buffer, exactly one message may be buffered in addition
+-- to the data in the receive buffer.
+--
+-- Default value is 128kB.
+setRcvBuf :: Socket a -> Int -> IO ()
+setRcvBuf (Socket _ sid) val =
+    Libnanomsg.setRecvBufferSize sid (fromIntegral val) >>= \case
+        Left errno -> throwErrno' "setRcvBuf" errno
+        Right () -> pure ()
 
 ---- Think I'll just skip these. There's recv' for nonblocking receive, and
 ---- adding a return value to send seems awkward.
 ----sendTimeout
 ----recvTimeout
 
----- | For connection-based transports such as TCP, this option specifies
----- how long to wait, in milliseconds, when connection is broken before
----- trying to re-establish it.
-----
----- Note that actual reconnect interval may be randomised to some extent
----- to prevent severe reconnection storms.
-----
----- Default value is 100 (0.1 second).
---reconnectInterval :: Socket a -> IO Int
---reconnectInterval s =
---    fromIntegral <$> getOption s (#const NN_SOL_SOCKET) (#const NN_RECONNECT_IVL)
+-- | For connection-based transports such as TCP, this option specifies
+-- how long to wait, in milliseconds, when connection is broken before
+-- trying to re-establish it.
+--
+-- Note that actual reconnect interval may be randomised to some extent
+-- to prevent severe reconnection storms.
+--
+-- Default value is 100 (0.1 second).
+reconnectInterval :: Socket a -> IO Int
+reconnectInterval (Socket _ sid) =
+    Libnanomsg.getReconnectInterval sid >>= \case
+        Left errno -> throwErrno' "reconnectInterval" errno
+        Right val -> pure (fromIntegral val)
 
----- | For connection-based transports such as TCP, this option specifies
----- how long to wait, in milliseconds, when connection is broken before
----- trying to re-establish it.
-----
----- Note that actual reconnect interval may be randomised to some extent
----- to prevent severe reconnection storms.
-----
----- Default value is 100 (0.1 second).
---setReconnectInterval :: Socket a -> Int -> IO ()
---setReconnectInterval s val =
---    setOption s (#const NN_SOL_SOCKET) (#const NN_RECONNECT_IVL) (IntOption val)
+-- | For connection-based transports such as TCP, this option specifies
+-- how long to wait, in milliseconds, when connection is broken before
+-- trying to re-establish it.
+--
+-- Note that actual reconnect interval may be randomised to some extent
+-- to prevent severe reconnection storms.
+--
+-- Default value is 100 (0.1 second).
+setReconnectInterval :: Socket a -> Int -> IO ()
+setReconnectInterval (Socket _ sid) val =
+    Libnanomsg.setReconnectInterval sid (fromIntegral val) >>= \case
+        Left errno -> throwErrno' "setReconnectInterval" errno
+        Right () -> pure ()
 
----- | This option is to be used only in addition to NN_RECONNECT_IVL option.
----- It specifies maximum reconnection interval. On each reconnect attempt,
----- the previous interval is doubled until NN_RECONNECT_IVL_MAX is reached.
-----
----- Value of zero means that no exponential backoff is performed and reconnect
----- interval is based only on NN_RECONNECT_IVL. If NN_RECONNECT_IVL_MAX is
----- less than NN_RECONNECT_IVL, it is ignored.
-----
----- Default value is 0.
---reconnectIntervalMax :: Socket a -> IO Int
---reconnectIntervalMax s =
---    fromIntegral <$> getOption s (#const NN_SOL_SOCKET) (#const NN_RECONNECT_IVL_MAX)
+-- | This option is to be used only in addition to NN_RECONNECT_IVL option.
+-- It specifies maximum reconnection interval. On each reconnect attempt,
+-- the previous interval is doubled until NN_RECONNECT_IVL_MAX is reached.
+--
+-- Value of zero means that no exponential backoff is performed and reconnect
+-- interval is based only on NN_RECONNECT_IVL. If NN_RECONNECT_IVL_MAX is
+-- less than NN_RECONNECT_IVL, it is ignored.
+--
+-- Default value is 0.
+reconnectIntervalMax :: Socket a -> IO Int
+reconnectIntervalMax (Socket _ sid) =
+    Libnanomsg.getMaxReconnectInterval sid >>= \case
+        Left errno -> throwErrno' "reconnectIntervalMax" errno
+        Right val -> pure (fromIntegral val)
 
----- | This option is to be used only in addition to NN_RECONNECT_IVL option.
----- It specifies maximum reconnection interval. On each reconnect attempt,
----- the previous interval is doubled until NN_RECONNECT_IVL_MAX is reached.
-----
----- Value of zero means that no exponential backoff is performed and reconnect
----- interval is based only on NN_RECONNECT_IVL. If NN_RECONNECT_IVL_MAX is
----- less than NN_RECONNECT_IVL, it is ignored.
-----
----- Default value is 0.
---setReconnectIntervalMax :: Socket a -> Int -> IO ()
---setReconnectIntervalMax s val =
---    setOption s (#const NN_SOL_SOCKET) (#const NN_RECONNECT_IVL_MAX) (IntOption val)
+-- | This option is to be used only in addition to NN_RECONNECT_IVL option.
+-- It specifies maximum reconnection interval. On each reconnect attempt,
+-- the previous interval is doubled until NN_RECONNECT_IVL_MAX is reached.
+--
+-- Value of zero means that no exponential backoff is performed and reconnect
+-- interval is based only on NN_RECONNECT_IVL. If NN_RECONNECT_IVL_MAX is
+-- less than NN_RECONNECT_IVL, it is ignored.
+--
+-- Default value is 0.
+setReconnectIntervalMax :: Socket a -> Int -> IO ()
+setReconnectIntervalMax (Socket _ sid) val =
+    Libnanomsg.setMaxReconnectInterval sid (fromIntegral val) >>= \case
+        Left errno -> throwErrno' "setReconnectIntervalMax" errno
+        Right () -> pure ()
 
----- | Sets outbound priority for endpoints subsequently added to the socket.
----- This option has no effect on socket types that send messages to all the
----- peers. However, if the socket type sends each message to a single peer
----- (or a limited set of peers), peers with high priority take precedence over
----- peers with low priority.
-----
----- Highest priority is 1, lowest priority is 16. Default value is 8.
---sndPrio :: Socket a -> IO Int
---sndPrio s =
---    fromIntegral <$> getOption s (#const NN_SOL_SOCKET) (#const NN_SNDPRIO)
+-- | Sets outbound priority for endpoints subsequently added to the socket.
+-- This option has no effect on socket types that send messages to all the
+-- peers. However, if the socket type sends each message to a single peer
+-- (or a limited set of peers), peers with high priority take precedence over
+-- peers with low priority.
+--
+-- Highest priority is 1, lowest priority is 16. Default value is 8.
+sndPrio :: Socket a -> IO Int
+sndPrio (Socket _ sid) =
+    Libnanomsg.getSendPriority sid >>= \case
+        Left errno -> throwErrno' "sndPrio" errno
+        Right val -> pure (fromIntegral val)
 
----- | Sets outbound priority for endpoints subsequently added to the socket.
----- This option has no effect on socket types that send messages to all the
----- peers. However, if the socket type sends each message to a single peer
----- (or a limited set of peers), peers with high priority take precedence over
----- peers with low priority.
-----
----- Highest priority is 1, lowest priority is 16. Default value is 8.
---setSndPrio :: Socket a -> Int -> IO ()
---setSndPrio s val =
---    setOption s (#const NN_SOL_SOCKET) (#const NN_SNDPRIO) (IntOption val)
+-- | Sets outbound priority for endpoints subsequently added to the socket.
+-- This option has no effect on socket types that send messages to all the
+-- peers. However, if the socket type sends each message to a single peer
+-- (or a limited set of peers), peers with high priority take precedence over
+-- peers with low priority.
+--
+-- Highest priority is 1, lowest priority is 16. Default value is 8.
+setSndPrio :: Socket a -> Int -> IO ()
+setSndPrio (Socket _ sid) val =
+    Libnanomsg.setSendPriority sid (fromIntegral val) >>= \case
+        Left errno -> throwErrno' "setSndPrio" errno
+        Right () -> pure ()
 
----- | If set to 1, only IPv4 addresses are used. If set to 0, both IPv4
----- and IPv6 addresses are used.
-----
----- Default value is 1.
---ipv4Only :: Socket a -> IO Int
---ipv4Only s =
---    fromIntegral <$> getOption s (#const NN_SOL_SOCKET) (#const NN_IPV4ONLY)
+-- | If set to 1, only IPv4 addresses are used. If set to 0, both IPv4
+-- and IPv6 addresses are used.
+--
+-- Default value is 1.
+ipv4Only :: Socket a -> IO Int
+ipv4Only (Socket _ sid) =
+    Libnanomsg.getIPv4Only sid >>= \case
+        Left errno -> throwErrno' "ipv4Only" errno
+        Right val -> pure (if val then 1 else 0)
 
----- | If set to 1, only IPv4 addresses are used. If set to 0, both IPv4
----- and IPv6 addresses are used.
-----
----- Default value is 1.
---setIpv4Only :: Socket a -> Int -> IO ()
---setIpv4Only s val =
---    setOption s (#const NN_SOL_SOCKET) (#const NN_IPV4ONLY) (IntOption val)
+-- | If set to 1, only IPv4 addresses are used. If set to 0, both IPv4
+-- and IPv6 addresses are used.
+--
+-- Default value is 1.
+setIpv4Only :: Socket a -> Int -> IO ()
+setIpv4Only (Socket _ sid) val =
+    Libnanomsg.setIPv4Only sid (val == 1) >>= \case
+        Left errno -> throwErrno' "setIpv4Only" errno
+        Right () -> pure ()
 
 ---- | This option is defined on the full REQ socket. If reply is not received
 ---- in specified amount of milliseconds, the request will be automatically
