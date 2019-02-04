@@ -34,6 +34,7 @@ module Libnanomsg
   , setSendTimeout
   , shutdown
   , socket
+  , strerror
   , term
   , version
   , Address(..)
@@ -75,6 +76,7 @@ import qualified Libnanomsg.Address as Address
 import Data.ByteString (ByteString)
 import Data.Coerce (coerce)
 import Data.Primitive.Addr (Addr(..))
+import Data.Text (Text)
 import Foreign.C
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Ptr (Ptr)
@@ -83,6 +85,7 @@ import GHC.Conc (threadWaitRead)
 import System.Posix.Types (Fd(..))
 
 import qualified Data.ByteString.Unsafe as ByteString
+import qualified Data.Text as Text
 
 newtype Endpoint
   = Endpoint CInt
@@ -399,6 +402,11 @@ socket domain protocol = do
   if fd < 0
     then Left <$> getErrno
     else pure (Right (Socket fd))
+
+-- | <https://nanomsg.org/v1.1.5/nn_strerror.html>
+strerror :: Errno -> IO Text
+strerror (Errno errno) =
+  Text.pack <$> (peekCString =<< nn_strerror errno)
 
 term :: IO ()
 term =
