@@ -33,7 +33,7 @@ module Nanomsg
         , Bus(..)
         -- ** Other
         , Socket
-        -- , Endpoint
+        , Endpoint
         , NNException
         , SocketType
         -- , Sender
@@ -42,7 +42,7 @@ module Nanomsg
         -- ** General operations
         , socket
         , withSocket
-        -- , bind
+        , bind
         -- , connect
         -- , send
         -- , recv
@@ -87,9 +87,9 @@ module Nanomsg
 import qualified Libnanomsg
 
 import Data.ByteString (ByteString)
--- import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Unsafe as U
+import qualified Data.Text as T
 import Foreign (peek, poke, alloca)
 import Foreign.Ptr
 import Foreign.C.Error (Errno(..))
@@ -100,6 +100,7 @@ import GHC.Ptr (Ptr(..))
 import Control.Applicative ( (<$>) )
 import Control.Exception.Base (bracket)
 import Control.Exception (Exception, throwIO)
+import Data.List (stripPrefix)
 import Data.Typeable (Typeable)
 import Control.Monad (void)
 import Text.Printf (printf)
@@ -176,11 +177,11 @@ data Pull = Pull
 -- The socket should never receives messages that it sent itself.
 data Bus = Bus
 
----- | Endpoint identifier. Created by 'connect' or 'bind'.
-----
----- Close connections using 'shutdown'.
---data Endpoint = Endpoint CInt
---    deriving (Eq, Show)
+-- | Endpoint identifier. Created by 'connect' or 'bind'.
+--
+-- Close connections using 'shutdown'.
+data Endpoint = Endpoint Libnanomsg.Endpoint
+   deriving (Eq, Show)
 
 -- | Sockets are created by 'socket' and connections are established with 'connect' or 'bind'.
 --
@@ -427,26 +428,35 @@ socket t =
 withSocket :: (SocketType a) => a -> (Socket a -> IO b) -> IO b
 withSocket t = bracket (socket t) close
 
----- | Binds the socket to a local interface.
-----
----- See the nanomsg documentation for specifics on transports.
----- Note that host names do not work for tcp. Some examples are:
-----
----- > bind sock "tcp://*:5560"
----- > bind sock "tcp://eth0:5560"
----- > bind sock "tcp://127.0.0.1:5560"
----- > bind sock "inproc://test"
----- > bind sock "ipc:///tmp/test.ipc"
-----
----- This function returns an 'Endpoint', which can be supplied
----- to 'shutdown' to remove a connection.
-----
----- See also: 'connect', 'shutdown'.
---bind :: Socket a -> String -> IO Endpoint
---bind (Socket _ sid) addr =
---    withCString addr $ \adr -> do
---        epid <- throwErrnoIfMinus1 "bind" $ c_nn_bind sid adr
---        return $ Endpoint epid
+-- | Binds the socket to a local interface.
+--
+-- See the nanomsg documentation for specifics on transports.
+-- Note that host names do not work for tcp. Some examples are:
+--
+-- > bind sock "tcp://*:5560"
+-- > bind sock "tcp://eth0:5560"
+-- > bind sock "tcp://127.0.0.1:5560"
+-- > bind sock "inproc://test"
+-- > bind sock "ipc:///tmp/test.ipc"
+--
+-- This function returns an 'Endpoint', which can be supplied
+-- to 'shutdown' to remove a connection.
+--
+-- See also: 'connect', 'shutdown'.
+bind :: Socket a -> String -> IO Endpoint
+bind (Socket _ sid) addr = do
+    (transport, addr') <- parseTransport addr
+    Libnanomsg.bind sid transport (T.pack addr') >>= \case
+        Left errno -> throwErrno' "bind" errno
+        Right endpoint -> pure (Endpoint endpoint)
+    where
+        parseTransport :: String -> IO (Libnanomsg.Transport, String)
+        parseTransport = \case
+            (stripPrefix "inproc://" -> Just addr') -> pure (Libnanomsg.transportInproc, addr')
+            (stripPrefix "ipc://"    -> Just addr') -> pure (Libnanomsg.transportIpc,    addr')
+            (stripPrefix "tcp://"    -> Just addr') -> pure (Libnanomsg.transportTcp,    addr')
+            (stripPrefix "ws://"     -> Just addr') -> pure (Libnanomsg.transportWs,     addr')
+            _ -> throwIO (NNException ("Invalid address " ++ show addr))
 
 ---- | Connects the socket to an endpoint.
 ----

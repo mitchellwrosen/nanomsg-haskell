@@ -1,19 +1,28 @@
 module Libnanomsg.Transport
   ( Transport(..)
-  , toText
+  , transportInproc
+  , transportIpc
+  , transportTcp
+  , transportWs
   ) where
 
 import Data.Text (Text)
 
-data Transport
-  = Inproc
-  | Ipc
-  | Tcp
-  | Ws
+newtype Transport
+  = Transport { unTransport :: Text }
 
-toText :: Transport -> Text
-toText = \case
-  Inproc -> "inproc://"
-  Ipc -> "ipc://"
-  Tcp -> "tcp://"
-  Ws -> "ws://"
+transportInproc :: Transport
+transportInproc =
+  Transport "inproc://"
+
+transportIpc :: Transport
+transportIpc =
+  Transport "ipc://"
+
+transportTcp :: Transport
+transportTcp =
+  Transport "tcp://"
+
+transportWs :: Transport
+transportWs =
+  Transport "ws://"

@@ -32,6 +32,7 @@ module Libnanomsg
   , shutdown
   , socket
   , version
+  , Endpoint
   , Domain
   , domainSp
   , domainSpRaw
@@ -51,7 +52,11 @@ module Libnanomsg
   , SendFlags
   , sendFlagDontwait
   , Socket
-  , Transport(..)
+  , Transport
+  , transportInproc
+  , transportIpc
+  , transportTcp
+  , transportWs
   ) where
 
 #include "nanomsg/nn.h"
@@ -63,9 +68,7 @@ import Libnanomsg.Option
 import Libnanomsg.Protocol
 import Libnanomsg.RecvFlags
 import Libnanomsg.SendFlags
-import Libnanomsg.Transport (Transport)
-
-import qualified Libnanomsg.Transport as Transport
+import Libnanomsg.Transport
 
 import Data.ByteString (ByteString)
 import Data.Primitive.Addr (Addr(..))
@@ -80,6 +83,7 @@ import qualified Data.Text.Encoding as Text
 
 newtype Endpoint
   = Endpoint CInt
+  deriving (Eq, Show)
 
 newtype Socket
   = Socket CInt
@@ -99,7 +103,7 @@ bind (Socket fd) transport addr =
   where
     addrBytes :: ByteString
     addrBytes =
-      Text.encodeUtf8 (Transport.toText transport <> addr <> "\0")
+      Text.encodeUtf8 (unTransport transport <> addr <> "\0")
 
 -- | <https://nanomsg.org/v1.1.5/nn_close.html>
 close :: Socket -> IO (Either Errno ())
