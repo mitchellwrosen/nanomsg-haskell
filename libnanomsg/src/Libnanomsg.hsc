@@ -32,6 +32,8 @@ module Libnanomsg
   , setSendTimeout
   , shutdown
   , socket
+  , threadWaitRecv
+  , threadWaitSend
   , version
   , Address(..)
   , Endpoint
@@ -70,15 +72,16 @@ import Libnanomsg.SendFlags
 import qualified Libnanomsg.Address as Address
 
 import Data.ByteString (ByteString)
+import Data.Coerce (coerce)
 import Data.Primitive.Addr (Addr(..))
-import Data.Text (Text)
 import Foreign.C
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Ptr (Ptr)
 import Foreign.Storable (peek, poke, sizeOf)
+import GHC.Conc (threadWaitRead)
+import System.Posix.Types (Fd(..))
 
 import qualified Data.ByteString.Unsafe as ByteString
-import qualified Data.Text.Encoding as Text
 
 newtype Endpoint
   = Endpoint CInt
@@ -194,6 +197,12 @@ getRecvBufferSize ::
 getRecvBufferSize socket =
   getsockopt_int socket levelSocket optionRcvbuf
 
+getRecvFd ::
+     Socket
+  -> IO (Either Errno Fd)
+getRecvFd socket =
+  coerce (getsockopt_int socket levelSocket optionRcvfd)
+
 getRecvPriority ::
      Socket
   -> IO (Either Errno CInt)
@@ -211,6 +220,12 @@ getSendBufferSize ::
   -> IO (Either Errno CInt)
 getSendBufferSize socket =
   getsockopt_int socket levelSocket optionSndbuf
+
+getSendFd ::
+     Socket
+  -> IO (Either Errno Fd)
+getSendFd socket =
+  coerce (getsockopt_int socket levelSocket optionSndfd)
 
 getSendPriority ::
      Socket
@@ -383,6 +398,18 @@ socket domain protocol = do
   if fd < 0
     then Left <$> getErrno
     else pure (Right (Socket fd))
+
+threadWaitRecv :: Socket -> IO ()
+threadWaitRecv socket =
+  getRecvFd socket >>= \case
+    Left _ -> pure () -- Ignore errors
+    Right fd -> threadWaitRead fd
+
+threadWaitSend :: Socket -> IO ()
+threadWaitSend socket =
+  getSendFd socket >>= \case
+    Left _ -> pure () -- Ignore errors
+    Right fd -> threadWaitRead fd
 
 version :: (Int, Int)
 version =

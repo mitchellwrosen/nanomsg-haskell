@@ -36,7 +36,7 @@ module Nanomsg
         , Endpoint
         , NNException
         , SocketType
-        -- , Sender
+        , Sender
         -- , Receiver
         -- * Operations
         -- ** General operations
@@ -44,7 +44,7 @@ module Nanomsg
         , withSocket
         , bind
         , connect
-        -- , send
+        , send
         -- , recv
         -- , recv'
         -- , subscribe
@@ -89,10 +89,11 @@ import qualified Libnanomsg
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Unsafe as U
+import Data.Primitive.Addr (Addr(..))
 import qualified Data.Text as T
 import Foreign (peek, poke, alloca)
 import Foreign.Ptr
-import Foreign.C.Error (Errno(..))
+import Foreign.C.Error (Errno(..), eAGAIN)
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Storable (sizeOf)
@@ -224,16 +225,16 @@ instance SocketType Bus where
     socketType Bus = Libnanomsg.protocolBus
 
 
----- | Typeclass restricting which sockets can use the send function.
---class (SocketType a) => Sender a
---instance Sender Pair
---instance Sender Req
---instance Sender Rep
---instance Sender Pub
---instance Sender Surveyor
---instance Sender Respondent
---instance Sender Push
---instance Sender Bus
+-- | Typeclass restricting which sockets can use the send function.
+class (SocketType a) => Sender a
+instance Sender Pair
+instance Sender Req
+instance Sender Rep
+instance Sender Pub
+instance Sender Surveyor
+instance Sender Respondent
+instance Sender Push
+instance Sender Bus
 
 ---- | Typeclass for sockets that implement recv
 --class (SocketType a) => Receiver a
@@ -480,23 +481,23 @@ parseAddress = \case
 --shutdown (Socket _ sid) (Endpoint eid) =
 --    throwErrnoIfMinus1_ "shutdown" $ c_nn_shutdown sid eid
 
----- | Blocking function for sending a message
-----
----- See also: 'recv', 'recv''.
---send :: Sender a => Socket a -> ByteString -> IO ()
---send (Socket t sid) string =
---    U.unsafeUseAsCStringLen string $ \(Ptr ptr, len) -> do
---        Libnanomsg.send sid (Addr ptr) _ _
---        undefined
---     -- Socket
---  -- -> Addr
---  -- -> CSize
---  -- -> SendFlags
---  -- -> IO (Either Errno CInt)
---        -- throwErrnoIfMinus1RetryMayBlock_
---        --     "send"
---        --     (c_nn_send sid ptr (fromIntegral len) (#const NN_DONTWAIT))
---        --     (getOptionFd (Socket t sid) (#const NN_SNDFD) >>= threadWaitWrite)
+-- | Blocking function for sending a message
+--
+-- See also: 'recv', 'recv''.
+send :: Sender a => Socket a -> ByteString -> IO ()
+send (Socket t sid) string =
+    U.unsafeUseAsCStringLen string $ \(Ptr ptr, len) ->
+        Libnanomsg.send sid (Addr ptr) (fromIntegral len) Libnanomsg.sendFlagDontwait >>= \case
+            Left errno ->
+                if errno == eAGAIN
+                    then do
+                        Libnanomsg.threadWaitSend sid
+                        send (Socket t sid) string
+                    else do
+                        throwErrno' "send" errno
+
+            Right _ ->
+                pure ()
 
 ---- | Blocking receive.
 --recv :: Receiver a => Socket a -> IO ByteString

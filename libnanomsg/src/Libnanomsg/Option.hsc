@@ -3,12 +3,14 @@ module Libnanomsg.Option
   , optionIpv4only
   , optionMaxttl
   , optionRcvbuf
+  , optionRcvfd
   , optionRcvmaxsize
   , optionRcvprio
   , optionRcvtimeo
   , optionReconnectIvl
   , optionReconnectIvlMax
   , optionSndbuf
+  , optionSndfd
   , optionSndprio
   , optionSndtimeo
   ) where
